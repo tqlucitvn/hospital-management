@@ -1,0 +1,22 @@
+{
+    "name": "appointment-service",
+    "version": "1.0.0",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "prisma:generate": "prisma generate",
+        "prisma:push": "prisma db push",
+        "start:with-sync": "prisma db push && node src/index.js"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.17.0",
+        "amqplib": "^0.10.3",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "jsonwebtoken": "^9.0.2"
+    },
+    "devDependencies": {
+        "prisma": "^5.17.0"
+    }
+}

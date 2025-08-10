@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  user-db:
+    image: postgres:14-alpine
+    container_name: user-db
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=user_service_db
+    ports:
+      - '5433:5432'
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+
+  patient-db:
+    image: postgres:14-alpine
+    container_name: patient-db
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=patient_service_db
+    ports:
+      - '5434:5432'
+    volumes:
+      - patient_db_data:/var/lib/postgresql/data
+
+  appointment-db:
+    image: postgres:14-alpine
+    container_name: appointment-db
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=appointment_service_db
+    ports:
+      - '5435:5432'
+    volumes:
+      - appointment_db_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  user-service:
+    build:
+      context: ./services/user-service
+    container_name: user-service
+    restart: always
+    ports:
+      - '3002:3002'
+    environment:
+      - DATABASE_URL=postgresql://admin:password@user-db:5432/user_service_db
+      - PORT=3002
+      - JWT_SECRET=your-super-secret-key-for-jwt
+    depends_on:
+      - user-db
+      - rabbitmq
+
+  patient-service:
+    build:
+      context: ./services/patient-service
+    container_name: patient-service
+    restart: always
+    ports:
+      - '3001:3001'
+    environment:
+      - DATABASE_URL=postgresql://admin:password@patient-db:5432/patient_service_db
+      - PORT=3001
+      - JWT_SECRET=your-super-secret-key-for-jwt
+    depends_on:
+      - patient-db
+      - rabbitmq
+
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+    container_name: appointment-service
+    restart: always
+    ports:
+      - '3003:3003'
+    environment:
+      - DATABASE_URL=postgresql://admin:password@appointment-db:5432/appointment_service_db
+      - PORT=3003
+      - JWT_SECRET=your-super-secret-key-for-jwt
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - appointment-db
+      - rabbitmq
+
+volumes:
+  user_db_data:
+  patient_db_data:
+  appointment_db_data:
