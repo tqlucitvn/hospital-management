@@ -7,14 +7,20 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+enum AppointmentStatus {
+    SCHEDULED
+    COMPLETED
+    CANCELED
+}
+
 model Appointment {
-    id        String   @id @default(cuid())
+    id        String            @id @default(cuid())
     patientId String
     doctorId  String
     startTime DateTime
     endTime   DateTime
     reason    String?
-    status    String   @default("SCHEDULED")
+    status    AppointmentStatus @default(SCHEDULED)
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
