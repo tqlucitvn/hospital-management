@@ -47,6 +47,12 @@ services:
     ports:
       - '5672:5672'
       - '15672:15672'
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   user-service:
     build:
@@ -94,7 +100,48 @@ services:
       - appointment-db
       - rabbitmq
 
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: notification-service
+    restart: always
+    environment:
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  prescription-db:
+    image: postgres:14-alpine
+    container_name: prescription-db
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=prescription_service_db
+    ports:
+      - '5436:5432'
+    volumes:
+      - prescription_db_data:/var/lib/postgresql/data
+
+  prescription-service:
+    build:
+      context: ./services/prescription-service
+    container_name: prescription-service
+    restart: always
+    ports:
+      - '3005:3005'
+    environment:
+      - DATABASE_URL=postgresql://admin:password@prescription-db:5432/prescription_service_db
+      - PORT=3005
+      - JWT_SECRET=your-super-secret-key-for-jwt
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - prescription-db
+      - rabbitmq
+
 volumes:
   user_db_data:
   patient_db_data:
   appointment_db_data:
+  prescription_db_data:

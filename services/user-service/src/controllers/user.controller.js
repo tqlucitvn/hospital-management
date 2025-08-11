@@ -42,3 +42,35 @@ exports.login = async (req, res) => {
         res.status(500).json({ error: 'Could not log in.', details: error.message });
     }
 };
+
+
+exports.listUsers = async (_req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
+        });
+        res.json(users);
+    } catch (e) {
+        res.status(500).json({ error: 'Could not list users' });
+    }
+};
+
+exports.updateUserRole = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role } = req.body;
+        if (!role) return res.status(400).json({ error: 'Missing role' });
+        const updated = await prisma.user.update({
+            where: { id },
+            data: { role },
+            select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
+        });
+        res.json(updated);
+    } catch (e) {
+        if (e.code === 'P2025') {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.status(500).json({ error: 'Could not update role' });
+    }
+};
