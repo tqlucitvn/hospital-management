@@ -11,6 +11,10 @@ exports.register = async (req, res) => {
         if (!email || !password || !role) {
             return res.status(400).json({ error: 'Email, password, and role are required.' });
         }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+            return res.status(400).json({ error: 'Invalid email format' });
+        if (password.length < 6)
+            return res.status(400).json({ error: 'Password too short' });
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await prisma.user.create({
             data: { email, password: hashedPassword, role },
