@@ -49,6 +49,8 @@ exports.create = async (req, res) => {
             doctorId,
             itemsCount: created.items.length,
             status: created.status,
+            correlationId: req.correlationId,
+            requestId: req.requestId,
             ts: new Date().toISOString()
         }).catch(() => { });
 
@@ -121,6 +123,8 @@ exports.updateStatus = async (req, res) => {
             type: 'prescription.statusUpdated',
             id,
             status,
+            correlationId: req.correlationId,
+            requestId: req.requestId,
             ts: new Date().toISOString()
         }).catch(() => { });
 
