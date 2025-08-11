@@ -21,6 +21,9 @@ exports.create = async (req, res) => {
             if (!it.drugName || !it.dosage || !it.frequency || typeof it.durationDays !== 'number') {
                 return res.status(400).json({ error: 'Invalid item fields' });
             }
+            if (it.durationDays <= 0) {
+                return res.status(400).json({ error: 'durationDays must be > 0' });
+            }
         }
 
         const created = await prisma.prescription.create({
