@@ -8,7 +8,7 @@ const requestContext = require('./middleware/requestContext');
 const accessLog = require('./middleware/accessLog');
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '200kb' }));
 
 app.use(requestContext);
 app.use(accessLog);
