@@ -58,6 +58,14 @@ RABBITMQ_URL=amqp://rabbitmq:5672
 PORT=<service_port>
 ```
 
+## 6.1 Đồng bộ DB sau khi thay đổi schema (Appointment thêm CONFIRMED)
+Chạy lệnh sau:
+```bash
+docker compose exec appointment-service npm run prisma:push
+# hoặc
+docker compose exec appointment-service npx prisma db push
+```
+
 ## 7. Luồng nghiệp vụ chính
 1. ADMIN đăng ký / đăng nhập user (login lấy JWT).
 2. Tạo Patient.
@@ -68,6 +76,11 @@ PORT=<service_port>
 7. Notification-service nhận & log event:
    - appointment.created / statusUpdated / deleted
    - prescription.created / statusUpdated
+8. Appointment-service:
+  - Tạo lịch (mặc định SCHEDULED)
+  - Xác nhận lịch: PATCH /api/appointments/:id/status { "status": "CONFIRMED" }
+  - Hoàn tất: PATCH /api/appointments/:id/status { "status": "COMPLETED" }
+  - Hủy: PATCH /api/appointments/:id/status { "status": "CANCELED" }
 
 ## 8. API chính (tóm tắt)
 (Headers: Authorization: Bearer <JWT> khi cần)
@@ -88,7 +101,12 @@ Patient-service (http://localhost:3001/api/patients) (giả định):
 Appointment-service (http://localhost:3003/api/appointments):
 - POST / { patientId, doctorId, startTime, endTime, reason? }
 - GET /
-- PATCH /:id/status { status } (SCHEDULED|COMPLETED|CANCELED)
+- PATCH /:id/status { status } 
+  - Hợp lệ: SCHEDULED | CONFIRMED | COMPLETED | CANCELED
+  - Quy tắc chuyển:
+    - SCHEDULED -> CONFIRMED | CANCELED
+    - CONFIRMED -> COMPLETED | CANCELED
+    - COMPLETED, CANCELED -> (không chuyển tiếp)
 - DELETE /:id
 
 Prescription-service (http://localhost:3005/api/prescriptions):
@@ -136,7 +154,9 @@ curl -X POST http://localhost:3003/api/appointments \
 ```
 
 ## 11. Ràng buộc / Validation hiện tại
-- Appointment: bắt buộc trường, parse thời gian, end > start, không overlap (doctor).
+- Appointment: kiểm tra thời gian + overlap, và quy tắc chuyển trạng thái:
+  - SCHEDULED -> CONFIRMED | CANCELED
+  - CONFIRMED -> COMPLETED | CANCELED
 - Prescription: items bắt buộc, status transition ISSUED→FILLED/CANCELED.
 - User: unique email, (chưa áp dụng password/email format nâng cao).
 - Patient: phoneNumber @unique (theo schema nội bộ).
@@ -190,23 +210,17 @@ docker compose up --build -d
    GET /api/patients?search=...
 
 ### Luồng 3: Đặt lịch khám (Appointment)
-1. Đăng nhập (RECEPTIONIST / ADMIN / DOCTOR nếu cho phép)
-2. Có sẵn patientId & doctorId (nếu chưa có quay lại Luồng 2)
-3. Tạo lịch  
-   POST /api/appointments { patientId, doctorId, startTime, endTime, reason? }
-   - 201: thành công  
-   - 409: trùng khung giờ bác sĩ (Doctor timeslot conflict)
-4. (Tuỳ chọn) Liệt kê lịch sắp tới  
-   GET /api/appointments
+1) Đăng nhập (role hợp lệ)
+2) Tạo lịch: POST /api/appointments {...} -> SCHEDULED
+3) (Tuỳ quy trình) Xác nhận lịch: PATCH /:id/status { "status": "CONFIRMED" }
+4) (Tuỳ chọn) Xem danh sách lịch
 
 ### Luồng 4: Hoàn tất lịch & lập đơn thuốc
-1. Bác sĩ đăng nhập
-2. (Tuỳ chọn) Kiểm tra lịch chi tiết
-3. Đánh dấu hoàn tất  
-   PATCH /api/appointments/:id/status { status:"COMPLETED" }
-4. Tạo đơn thuốc  
-   POST /api/prescriptions { patientId, doctorId, appointmentId?, note?, items:[...] }
-5. Xem chi tiết đơn (tuỳ chọn)  
+1) Bác sĩ đăng nhập
+2) (Khuyên dùng) Nếu đang SCHEDULED: xác nhận trước -> PATCH { "status": "CONFIRMED" }
+3) Hoàn tất: PATCH { "status": "COMPLETED" }
+4) Tạo đơn thuốc: POST /api/prescriptions {...}
+5) Xem chi tiết đơn (tuỳ chọn)  
    GET /api/prescriptions/:id
 
 ### Luồng 5: Huỷ lịch khám
@@ -266,8 +280,8 @@ docker compose up --build -d
 | Cấp phát đơn | prescriptionId |
 
 ### Chuyển trạng thái
-- Appointment: SCHEDULED -> COMPLETED / CANCELED (không quay lại)
-- Prescription: ISSUED -> FILLED / CANCELED (không quay lại)
+- Appointment: SCHEDULED -> CONFIRMED | CANCELED; CONFIRMED -> COMPLETED | CANCELED
+- Prescription: ISSUED -> FILLED | CANCELED
 
 ### Gợi ý cache phía FE
 - Cache danh sách bác sĩ (users role=DOCTOR)
@@ -337,4 +351,3 @@ sequenceDiagram
 
 --- 
 Version: v0 (prototype).
- 

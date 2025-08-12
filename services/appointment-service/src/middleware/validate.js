@@ -8,6 +8,9 @@ module.exports.createAppointment = (req, res, next) => {
 
 module.exports.updateStatus = (req, res, next) => {
     const { status } = req.body;
-    if (!status) return res.status(400).json({ error: 'status required' });
+    const allowed = ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELED'];
+    if (!status || !allowed.includes(status)) {
+        return res.status(400).json({ error: 'status required or invalid' });
+    }
     next();
 };

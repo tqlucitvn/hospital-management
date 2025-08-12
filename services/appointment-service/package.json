@@ -6,7 +6,7 @@
         "start": "node src/index.js",
         "prisma:generate": "prisma generate",
         "prisma:push": "prisma db push",
-        "start:with-sync": "prisma db push && node src/index.js"
+        "start:with-sync": "prisma db push --accept-data-loss && node src/index.js"
     },
     "dependencies": {
         "@prisma/client": "^5.17.0",

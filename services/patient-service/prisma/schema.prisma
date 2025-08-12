@@ -15,6 +15,6 @@ model Patient {
   gender      String
   address     String
   phoneNumber String?  @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())  // thêm
+  updatedAt   DateTime @updatedAt       // khuyên dùng
 }

@@ -3,7 +3,13 @@ const prisma = new PrismaClient();
 const { publishEvent } = require('../lib/broker');
 
 const EXCHANGE = 'appointment.events';
-const VALID_STATUS = ['SCHEDULED', 'COMPLETED', 'CANCELED'];
+const VALID_STATUS = ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELED'];
+const TRANSITIONS = {
+    SCHEDULED: ['CONFIRMED', 'CANCELED'],
+    CONFIRMED: ['COMPLETED', 'CANCELED'],
+    COMPLETED: [],
+    CANCELED: []
+};
 
 function parseDate(value) {
     const d = new Date(value);
@@ -71,6 +77,28 @@ exports.updateStatus = async (req, res, next) => {
         if (!status || !VALID_STATUS.includes(status))
             return res.status(400).json({ error: 'Invalid status' });
 
+        // Lấy status hiện tại
+        const current = await prisma.appointment.findUnique({
+            where: { id },
+            select: { status: true, patientId: true, doctorId: true, startTime: true, endTime: true }
+        });
+        if (!current) return res.status(404).json({ error: 'Not found' });
+
+        // Idempotent
+        if (current.status === status) {
+            return res.json({ id, ...current });
+        }
+
+        // Kiểm tra chuyển trạng thái hợp lệ
+        if (!TRANSITIONS[current.status].includes(status)) {
+            return res.status(409).json({
+                error: 'Invalid status transition',
+                from: current.status,
+                to: status,
+                allowed: TRANSITIONS[current.status]
+            });
+        }
+
         const appt = await prisma.appointment.update({
             where: { id },
             data: { status }
@@ -82,6 +110,7 @@ exports.updateStatus = async (req, res, next) => {
             status,
             ts: new Date().toISOString()
         }).catch(() => { });
+
         res.json(appt);
     } catch (e) {
         if (e.code === 'P2025') return res.status(404).json({ error: 'Not found' });
