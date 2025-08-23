@@ -33,13 +33,25 @@ try {
             echo "<div class='alert alert-info'>Patient API Response: " . json_encode($response) . "</div>";
         }
         
-        if ($response['status_code'] === 200 && is_array($response['data'])) {
-            $stats['patients']['total'] = count($response['data']);
+        if ($response['status_code'] === 200 && isset($response['data'])) {
+            // Handle new patient API response format {patients: [], total: ...}
+            if (isset($response['data']['patients']) && is_array($response['data']['patients'])) {
+                $patients = $response['data']['patients'];
+                $stats['patients']['total'] = $response['data']['total'] ?? count($patients);
+            } 
+            // Handle old format (direct array)
+            elseif (is_array($response['data'])) {
+                $patients = $response['data'];
+                $stats['patients']['total'] = count($patients);
+            } else {
+                $patients = [];
+                $stats['patients']['total'] = 0;
+            }
             
             // Count patients created today
             $today = date('Y-m-d');
             $todayCount = 0;
-            foreach ($response['data'] as $patient) {
+            foreach ($patients as $patient) {
                 if (isset($patient['createdAt']) && strpos($patient['createdAt'], $today) === 0) {
                     $todayCount++;
                 }
@@ -47,7 +59,7 @@ try {
             $stats['patients']['today'] = $todayCount;
             
             // Get recent patients for activity feed
-            $recentPatients = array_slice(array_reverse($response['data']), 0, 5);
+            $recentPatients = array_slice(array_reverse($patients), 0, 5);
             foreach ($recentPatients as $patient) {
                 $recentActivities[] = [
                     'type' => 'patient',

@@ -27,8 +27,17 @@ try {
     
     foreach ($apis as $key => $url) {
         $response = makeApiCall($url, 'GET', null, $token);
-        if ($response['status_code'] === 200 && is_array($response['data'])) {
-            $stats[$key] = count($response['data']);
+        if ($response['status_code'] === 200) {
+            // Handle different API response formats
+            if ($key === 'patients' && isset($response['data']['total'])) {
+                // New pagination format
+                $stats[$key] = $response['data']['total'];
+            } elseif (is_array($response['data'])) {
+                // Old direct array format
+                $stats[$key] = count($response['data']);
+            } else {
+                $stats[$key] = 0;
+            }
         } else {
             $stats[$key] = 0;
         }
@@ -53,8 +62,19 @@ try {
         if ($type === 'users') continue; // Skip users for monthly stats
         
         $response = makeApiCall($url, 'GET', null, $token);
-        if ($response['status_code'] === 200 && is_array($response['data'])) {
-            foreach ($response['data'] as $item) {
+        if ($response['status_code'] === 200) {
+            $data = [];
+            
+            // Handle different API response formats
+            if ($type === 'patients' && isset($response['data']['patients'])) {
+                // New pagination format
+                $data = $response['data']['patients'];
+            } elseif (is_array($response['data'])) {
+                // Old direct array format
+                $data = $response['data'];
+            }
+            
+            foreach ($data as $item) {
                 if (isset($item['createdAt'])) {
                     $createdDate = new DateTime($item['createdAt']);
                     if ($createdDate->format('Y') == $selectedYear) {

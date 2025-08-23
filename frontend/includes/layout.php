@@ -293,13 +293,24 @@
             <div class="navbar-nav ms-auto">
                 <!-- Notifications -->
                 <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
+                    <a class="nav-link dropdown-toggle" href="notifications.php" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
                         <i class="bi bi-bell"></i>
                         <span class="badge bg-danger" id="notificationCount" style="display: none;">0</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><h6 class="dropdown-header">Notifications</h6></li>
-                        <li id="noNotifications"><span class="dropdown-item-text">No new notifications</span></li>
+                        <li><h6 class="dropdown-header">Recent Notifications</h6></li>
+                        <li><a class="dropdown-item" href="notifications.php">
+                            <i class="bi bi-calendar-check text-success"></i>
+                            New appointment scheduled
+                        </a></li>
+                        <li><a class="dropdown-item" href="notifications.php">
+                            <i class="bi bi-prescription2 text-info"></i>
+                            Prescription ready for pickup
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center" href="notifications.php">
+                            <i class="bi bi-bell"></i> View All Notifications
+                        </a></li>
                     </ul>
                 </div>
                 

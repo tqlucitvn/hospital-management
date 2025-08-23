@@ -75,7 +75,13 @@ $prescriptions = $response['status_code'] === 200 ? $response['data'] : [];
 
 // Get patients and users for dropdowns
 $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
-$patients = $patientsResponse['status_code'] === 200 ? $patientsResponse['data'] : [];
+$patients = [];
+if ($patientsResponse['status_code'] === 200) {
+    // Handle both old and new API response formats
+    $patients = isset($patientsResponse['data']['patients']) ? 
+                $patientsResponse['data']['patients'] : 
+                (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+}
 
 $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
 $users = $usersResponse['status_code'] === 200 ? $usersResponse['data'] : [];

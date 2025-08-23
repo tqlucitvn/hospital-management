@@ -459,6 +459,19 @@ function paginate($currentPage, $totalPages, $baseUrl) {
     return $pagination;
 }
 
+/**
+ * Get role badge CSS class
+ */
+function getRoleBadgeClass($role) {
+    return match($role) {
+        'ADMIN' => 'danger',
+        'DOCTOR' => 'primary',
+        'NURSE' => 'success',
+        'RECEPTIONIST' => 'info',
+        default => 'secondary'
+    };
+}
+
 // =============================================================================
 // DEBUG CONFIGURATION
 // =============================================================================
