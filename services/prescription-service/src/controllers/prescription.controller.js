@@ -137,3 +137,39 @@ exports.updateStatus = async (req, res) => {
         res.status(500).json({ error: 'Update failed' });
     }
 };
+
+exports.delete = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Check if prescription exists
+        const existing = await prisma.prescription.findUnique({
+            where: { id },
+            select: { id: true }
+        });
+        
+        if (!existing) {
+            return res.status(404).json({ error: 'Prescription not found' });
+        }
+        
+        // Delete prescription (items will be deleted via cascade)
+        await prisma.prescription.delete({
+            where: { id }
+        });
+        
+        publishEvent(EXCHANGE, 'prescription.deleted', {
+            type: 'prescription.deleted',
+            id,
+            correlationId: req.correlationId,
+            requestId: req.requestId,
+            ts: new Date().toISOString()
+        }).catch(() => { });
+        
+        res.status(204).send();
+    } catch (e) {
+        if (e.code === 'P2025') {
+            return res.status(404).json({ error: 'Prescription not found' });
+        }
+        res.status(500).json({ error: 'Delete failed' });
+    }
+};

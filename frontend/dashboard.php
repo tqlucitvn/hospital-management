@@ -22,34 +22,37 @@ $upcomingAppointments = [];
 try {
     $token = $_SESSION['token'];
     
+    // Debug: Add debug mode flag
+    $debugMode = isset($_GET['debug']);
+    
     // Get patient stats
     if (hasAnyRole(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'])) {
-        $response = makeApiCall(PATIENT_SERVICE_URL . '/stats', 'GET', null, $token);
+        $response = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
         
-        // Debug: Log the stats response
-        if (defined('DEBUG_MODE') && DEBUG_MODE) {
-            error_log("Patient Stats Response: " . json_encode($response));
+        if ($debugMode) {
+            echo "<div class='alert alert-info'>Patient API Response: " . json_encode($response) . "</div>";
         }
         
-        if ($response['status_code'] === 200) {
-            $stats['patients'] = $response['data'];
-        } else {
-            // If /stats doesn't exist, try to get count from patients list
-            $response = makeApiCall(PATIENT_SERVICE_URL . '?limit=1', 'GET', null, $token);
-            if ($response['status_code'] === 200 && isset($response['data']['total'])) {
-                $stats['patients']['total'] = $response['data']['total'];
-                $stats['patients']['today'] = 0; // Default for now
+        if ($response['status_code'] === 200 && is_array($response['data'])) {
+            $stats['patients']['total'] = count($response['data']);
+            
+            // Count patients created today
+            $today = date('Y-m-d');
+            $todayCount = 0;
+            foreach ($response['data'] as $patient) {
+                if (isset($patient['createdAt']) && strpos($patient['createdAt'], $today) === 0) {
+                    $todayCount++;
+                }
             }
-        }
-        
-        // Get recent patients for activity feed
-        $response = makeApiCall(PATIENT_SERVICE_URL . '?limit=5&sort=createdAt:desc', 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            foreach ($response['data']['patients'] ?? [] as $patient) {
+            $stats['patients']['today'] = $todayCount;
+            
+            // Get recent patients for activity feed
+            $recentPatients = array_slice(array_reverse($response['data']), 0, 5);
+            foreach ($recentPatients as $patient) {
                 $recentActivities[] = [
                     'type' => 'patient',
-                    'message' => "New patient registered: {$patient['fullName']}",
-                    'time' => $patient['createdAt'],
+                    'message' => 'New patient registered: ' . ($patient['fullName'] ?? 'Unknown'),
+                    'time' => isset($patient['createdAt']) ? formatDate($patient['createdAt']) : 'Recently',
                     'icon' => 'person-plus',
                     'color' => 'success'
                 ];
@@ -58,69 +61,130 @@ try {
     }
     
     // Get appointment stats
-    if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])) {
-        $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/appointments/stats', 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            $stats['appointments'] = $response['data'];
+    if (hasAnyRole(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'])) {
+        $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', null, $token);
+        
+        if ($debugMode) {
+            echo "<div class='alert alert-info'>Appointment API Response: " . json_encode($response) . "</div>";
         }
         
-        // Get upcoming appointments
-        $tomorrow = date('Y-m-d', strtotime('+1 day'));
-        $response = makeApiCall(APPOINTMENT_SERVICE_URL . "/appointments?date={$tomorrow}&limit=5", 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            $upcomingAppointments = $response['data']['appointments'];
-        }
-        
-        // Get recent appointments for activity feed
-        $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/appointments?limit=5&sort=createdAt:desc', 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            foreach ($response['data']['appointments'] as $appointment) {
-                $recentActivities[] = [
-                    'type' => 'appointment',
-                    'message' => "New appointment scheduled for " . formatDate($appointment['scheduledAt']),
-                    'time' => $appointment['createdAt'],
-                    'icon' => 'calendar-plus',
-                    'color' => 'primary'
-                ];
+        if ($response['status_code'] === 200 && is_array($response['data'])) {
+            $stats['appointments']['total'] = count($response['data']);
+            
+            // Count appointments today and pending
+            $today = date('Y-m-d');
+            $todayCount = 0;
+            $pendingCount = 0;
+            
+            foreach ($response['data'] as $appointment) {
+                // Count today's appointments
+                if (isset($appointment['startTime']) && strpos($appointment['startTime'], $today) === 0) {
+                    $todayCount++;
+                }
+                
+                // Count pending appointments (SCHEDULED or CONFIRMED)
+                if (isset($appointment['status']) && 
+                    in_array($appointment['status'], ['SCHEDULED', 'CONFIRMED'])) {
+                    $pendingCount++;
+                }
+            }
+            
+            $stats['appointments']['today'] = $todayCount;
+            $stats['appointments']['pending'] = $pendingCount;
+            
+            // Get upcoming appointments
+            $upcomingAppointments = array_filter($response['data'], function($appt) {
+                return isset($appt['startTime']) && 
+                       strtotime($appt['startTime']) > time() &&
+                       in_array($appt['status'] ?? '', ['SCHEDULED', 'CONFIRMED']);
+            });
+            
+            // Sort by start time and limit to 5
+            usort($upcomingAppointments, function($a, $b) {
+                return strtotime($a['startTime']) - strtotime($b['startTime']);
+            });
+            $upcomingAppointments = array_slice($upcomingAppointments, 0, 5);
+            
+            // Enrich appointments with patient and doctor info
+            if (!empty($upcomingAppointments)) {
+                // Get patients data
+                $patientResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+                $patients = [];
+                if ($patientResponse['status_code'] === 200 && is_array($patientResponse['data'])) {
+                    foreach ($patientResponse['data'] as $patient) {
+                        if (isset($patient['id']) && is_array($patient)) {
+                            $patients[$patient['id']] = $patient;
+                        }
+                    }
+                }
+                
+                // Get users data (for doctors)
+                $userResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+                $users = [];
+                if ($userResponse['status_code'] === 200 && is_array($userResponse['data'])) {
+                    foreach ($userResponse['data'] as $user) {
+                        if (isset($user['id']) && is_array($user)) {
+                            $users[$user['id']] = $user;
+                        }
+                    }
+                }
+                
+                // Enrich appointment data
+                foreach ($upcomingAppointments as &$appointment) {
+                    if (isset($appointment['patientId']) && isset($patients[$appointment['patientId']])) {
+                        $appointment['patient'] = $patients[$appointment['patientId']];
+                    }
+                    if (isset($appointment['doctorId']) && isset($users[$appointment['doctorId']])) {
+                        $appointment['doctor'] = $users[$appointment['doctorId']];
+                    }
+                }
+                unset($appointment); // Clear reference
             }
         }
     }
     
     // Get prescription stats
     if (hasAnyRole(['ADMIN', 'DOCTOR', 'NURSE'])) {
-        $response = makeApiCall(PRESCRIPTION_SERVICE_URL . '/prescriptions/stats', 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            $stats['prescriptions'] = $response['data'];
+        $response = makeApiCall(PRESCRIPTION_SERVICE_URL, 'GET', null, $token);
+        
+        if ($debugMode) {
+            echo "<div class='alert alert-info'>Prescription API Response: " . json_encode($response) . "</div>";
         }
         
-        // Get recent prescriptions for activity feed
-        $response = makeApiCall(PRESCRIPTION_SERVICE_URL . '/prescriptions?limit=5&sort=createdAt:desc', 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            foreach ($response['data']['prescriptions'] as $prescription) {
-                $recentActivities[] = [
-                    'type' => 'prescription',
-                    'message' => "New prescription created",
-                    'time' => $prescription['createdAt'],
-                    'icon' => 'prescription',
-                    'color' => 'info'
-                ];
+        if ($response['status_code'] === 200 && is_array($response['data'])) {
+            $stats['prescriptions']['total'] = count($response['data']);
+            
+            // Count pending prescriptions (ISSUED status)
+            $pendingCount = 0;
+            foreach ($response['data'] as $prescription) {
+                if (isset($prescription['status']) && $prescription['status'] === 'ISSUED') {
+                    $pendingCount++;
+                }
             }
+            $stats['prescriptions']['pending'] = $pendingCount;
         }
     }
     
-    // Get user stats (Admin only)
+    // Get user stats (for admin only)
     if (hasRole('ADMIN')) {
-        $response = makeApiCall(USER_SERVICE_URL . '/users/stats', 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            $stats['users'] = $response['data'];
+        $response = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+        
+        if ($debugMode) {
+            echo "<div class='alert alert-info'>User API Response: " . json_encode($response) . "</div>";
+        }
+        
+        if ($response['status_code'] === 200 && is_array($response['data'])) {
+            $stats['users']['total'] = count($response['data']);
         }
     }
     
     // Sort recent activities by time
-    usort($recentActivities, function($a, $b) {
-        return strtotime($b['time']) - strtotime($a['time']);
-    });
-    $recentActivities = array_slice($recentActivities, 0, 10); // Keep only 10 most recent
+    if (!empty($recentActivities)) {
+        usort($recentActivities, function($a, $b) {
+            return strtotime($b['time']) - strtotime($a['time']);
+        });
+        $recentActivities = array_slice($recentActivities, 0, 10); // Keep only 10 most recent
+    }
     
 } catch (Exception $e) {
     // Log error but don't break the dashboard
@@ -136,9 +200,9 @@ ob_start();
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="h3 mb-1">Welcome back, <?php echo sanitize($user['fullName']); ?>! 👋</h1>
+                <h1 class="h3 mb-1">Welcome back, <?php echo sanitize($user['fullName'] ?? $user['email'] ?? 'User'); ?>! 👋</h1>
                 <p class="text-muted mb-0">
-                    <?php echo getRoleDisplayName($user['role']); ?> • 
+                    <?php echo getRoleDisplayName($user['role'] ?? 'USER'); ?> • 
                     Today is <?php echo date('l, F j, Y'); ?>
                 </p>
             </div>
@@ -189,11 +253,11 @@ ob_start();
                             Appointments
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?php echo number_format($stats['appointments']['total']); ?>
+                            <?php echo number_format($stats['appointments']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-clock text-warning"></i>
-                            <?php echo $stats['appointments']['pending']; ?> pending
+                            <?php echo $stats['appointments']['pending'] ?? 0; ?> pending
                         </div>
                     </div>
                     <div class="col-auto">
@@ -216,11 +280,11 @@ ob_start();
                             Prescriptions
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?php echo number_format($stats['prescriptions']['total']); ?>
+                            <?php echo number_format($stats['prescriptions']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-hourglass text-warning"></i>
-                            <?php echo $stats['prescriptions']['pending']; ?> pending
+                            <?php echo $stats['prescriptions']['pending'] ?? 0; ?> pending
                         </div>
                     </div>
                     <div class="col-auto">
@@ -243,7 +307,7 @@ ob_start();
                             System Users
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?php echo number_format($stats['users']['total']); ?>
+                            <?php echo number_format($stats['users']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-shield-check text-success"></i>
@@ -366,13 +430,30 @@ ob_start();
                         <?php foreach ($upcomingAppointments as $appointment): ?>
                         <div class="appointment-item d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
                             <div>
-                                <div class="fw-bold"><?php echo formatDate($appointment['scheduledAt']); ?></div>
+                                <div class="fw-bold"><?php echo formatDate($appointment['startTime'] ?? $appointment['createdAt'] ?? 'N/A'); ?></div>
                                 <small class="text-muted">
-                                    Patient: <?php echo sanitize($appointment['patient']['fullName'] ?? 'N/A'); ?>
+                                    Patient: <?php 
+                                        if (isset($appointment['patient']['fullName'])) {
+                                            echo sanitize($appointment['patient']['fullName']);
+                                        } elseif (isset($appointment['patientId'])) {
+                                            echo "ID: " . substr($appointment['patientId'], 0, 8) . "...";
+                                        } else {
+                                            echo 'N/A';
+                                        }
+                                    ?><br>
+                                    Doctor: <?php 
+                                        if (isset($appointment['doctor']['fullName'])) {
+                                            echo sanitize($appointment['doctor']['fullName']);
+                                        } elseif (isset($appointment['doctorId'])) {
+                                            echo "ID: " . substr($appointment['doctorId'], 0, 8) . "...";
+                                        } else {
+                                            echo 'N/A';
+                                        }
+                                    ?>
                                 </small>
                             </div>
-                            <span class="<?php echo getAppointmentStatusClass($appointment['status']); ?>">
-                                <?php echo ucfirst(strtolower($appointment['status'])); ?>
+                            <span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>">
+                                <?php echo ucfirst(strtolower($appointment['status'] ?? 'Unknown')); ?>
                             </span>
                         </div>
                         <?php endforeach; ?>

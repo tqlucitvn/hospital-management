@@ -10,5 +10,6 @@ router.post('/login', userController.login);
 // Admin protected
 router.get('/', auth(['ADMIN']), userController.listUsers);
 router.patch('/:id/role', auth(['ADMIN']), userController.updateUserRole);
+router.delete('/:id', auth(['ADMIN']), userController.deleteUser);
 
 module.exports = router;

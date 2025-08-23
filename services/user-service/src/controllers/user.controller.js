@@ -78,3 +78,31 @@ exports.updateUserRole = async (req, res) => {
         res.status(500).json({ error: 'Could not update role' });
     }
 };
+
+exports.deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Check if user exists
+        const user = await prisma.user.findUnique({
+            where: { id },
+            select: { id: true, email: true }
+        });
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Delete user
+        await prisma.user.delete({
+            where: { id }
+        });
+        
+        res.status(204).send();
+    } catch (e) {
+        if (e.code === 'P2025') {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.status(500).json({ error: 'Could not delete user', details: e.message });
+    }
+};
