@@ -1,4 +1,61 @@
 node_modules
+
+# Development and testing files
+frontend/debug-*.php
+frontend/test-*.php
+frontend/simple-*.php
+frontend/*-test.php
+frontend/*-backup.php
+frontend/generate-data.php
+frontend/clear-data.php
+frontend/css-test.html
+
+# USBWebserver (local development server)
+USBWebserver/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
 dist
 .env
 *.log
