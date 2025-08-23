@@ -5,6 +5,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const patientController = require('../controllers/patient.controller');
 
+// Basic stats endpoint
+router.get('/stats', auth(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']), patientController.getStats);
+
 router.post('/', auth(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']), patientController.createPatient);
 router.get('/', auth(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']), patientController.getAllPatients);
 router.get('/:id', auth(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']), patientController.getPatientById);
