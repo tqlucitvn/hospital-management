@@ -3,3 +3,8 @@ dist
 .env
 *.log
 .prisma
+
+# USBWebserver
+USBWebserver/
+usbwebserver/
+webserver/
