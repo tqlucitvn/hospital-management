@@ -407,8 +407,23 @@ if ($action === 'add') {
                                     
     foreach ($patients as $patient) {
         $selected = $patient['id'] == $appointment['patientId'] ? 'selected' : '';
+        
+        // Handle different patient data structures
+        $patientDisplayName = '';
+        if (isset($patient['fullName'])) {
+            $patientDisplayName = $patient['fullName'];
+        } elseif (isset($patient['firstName']) && isset($patient['lastName'])) {
+            $patientDisplayName = $patient['firstName'] . ' ' . $patient['lastName'];
+        } elseif (isset($patient['name'])) {
+            $patientDisplayName = $patient['name'];
+        } elseif (isset($patient['email'])) {
+            $patientDisplayName = $patient['email'];
+        } else {
+            $patientDisplayName = 'Patient ID:' . $patient['id'];
+        }
+        
         $pageContent .= '<option value="' . $patient['id'] . '" ' . $selected . '>' . 
-                       htmlspecialchars($patient['firstName'] . ' ' . $patient['lastName']) . '</option>';
+                       htmlspecialchars($patientDisplayName) . '</option>';
     }
     
     $pageContent .= '
@@ -423,8 +438,21 @@ if ($action === 'add') {
                                     
     foreach ($doctors as $doctor) {
         $selected = $doctor['id'] == $appointment['doctorId'] ? 'selected' : '';
+        
+        // Handle different doctor data structures
+        $doctorDisplayName = 'Dr. ';
+        if (isset($doctor['firstName']) && isset($doctor['lastName'])) {
+            $doctorDisplayName .= $doctor['firstName'] . ' ' . $doctor['lastName'];
+        } elseif (isset($doctor['email'])) {
+            $doctorDisplayName .= $doctor['email'];
+        } elseif (isset($doctor['username'])) {
+            $doctorDisplayName .= $doctor['username'];
+        } else {
+            $doctorDisplayName .= 'ID:' . $doctor['id'];
+        }
+        
         $pageContent .= '<option value="' . $doctor['id'] . '" ' . $selected . '>' . 
-                       htmlspecialchars('Dr. ' . $doctor['firstName'] . ' ' . $doctor['lastName']) . '</option>';
+                       htmlspecialchars($doctorDisplayName) . '</option>';
     }
     
     $pageContent .= '
