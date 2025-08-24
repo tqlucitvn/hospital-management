@@ -60,18 +60,55 @@ exports.listUsers = async (_req, res) => {
     }
 };
 
+exports.getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await prisma.user.findUnique({
+            where: { id },
+            select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
+        });
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        res.json(user);
+    } catch (e) {
+        res.status(500).json({ error: 'Could not get user details' });
+    }
+};
+
 exports.updateUserRole = async (req, res) => {
     try {
         const { id } = req.params;
         const { role } = req.body;
-        if (!role) return res.status(400).json({ error: 'Missing role' });
+        
+        console.log(`Update role request - ID: ${id}, Role: "${role}", Type: ${typeof role}`);
+        console.log('Full request body:', req.body);
+        
+        if (!role) {
+            console.log('Missing role in request');
+            return res.status(400).json({ error: 'Missing role' });
+        }
+        
+        // Validate role enum
+        const validRoles = ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
+        if (!validRoles.includes(role)) {
+            console.log(`Invalid role: "${role}". Valid roles:`, validRoles);
+            return res.status(400).json({ error: 'Invalid role. Must be one of: ' + validRoles.join(', ') });
+        }
+        
         const updated = await prisma.user.update({
             where: { id },
             data: { role },
             select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
         });
+        
+        console.log('Role updated successfully:', updated);
         res.json(updated);
     } catch (e) {
+        console.log('Update role error:', e.message);
+        console.log('Error details:', e);
         if (e.code === 'P2025') {
             return res.status(404).json({ error: 'User not found' });
         }
