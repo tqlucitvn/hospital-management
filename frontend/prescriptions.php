@@ -52,19 +52,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_status') {
+    // Debug: Log POST data
+    $debugLog = "Prescription POST data: " . print_r($_POST, true) . "\n";
+    file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
+    
     if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
         $prescriptionId = $_POST['prescriptionId'];
         $newStatus = $_POST['status'];
         
+        $debugLog = "Updating prescription ID: $prescriptionId to status: $newStatus\n";
+        file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
+        
         $response = makeApiCall(PRESCRIPTION_SERVICE_URL . '/' . $prescriptionId . '/status', 'PATCH', 
                                ['status' => $newStatus], $_SESSION['token']);
+        
+        $debugLog = "Prescription API Response: " . print_r($response, true) . "\n";
+        file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
         
         if ($response['status_code'] === 200) {
             header('Location: prescriptions.php?success=Prescription status updated');
             exit();
         } else {
             $error = 'Failed to update status: ' . ($response['data']['error'] ?? 'Unknown error');
+            $debugLog = "Prescription update failed: " . $error . "\n";
+            file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
         }
+    } else {
+        $error = 'Invalid CSRF token';
+        $debugLog = "Prescription CSRF token verification failed\n";
+        file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
     }
 }
 
@@ -397,10 +413,10 @@ if ($action === 'add') {
         // Status update buttons
         if ($prescription['status'] === 'ISSUED') {
             $pageContent .= '
-                            <button class="btn btn-success btn-sm mb-2 w-100" onclick="updateStatus(' . $prescription['id'] . ', \'FILLED\')">
+                            <button class="btn btn-success btn-sm mb-2 w-100" onclick="updateStatus(\'' . $prescription['id'] . '\', \'FILLED\')">
                                 <i class="bi bi-check"></i> Mark as Filled
                             </button>
-                            <button class="btn btn-danger btn-sm mb-2 w-100" onclick="updateStatus(' . $prescription['id'] . ', \'CANCELED\')">
+                            <button class="btn btn-danger btn-sm mb-2 w-100" onclick="updateStatus(\'' . $prescription['id'] . '\', \'CANCELED\')">
                                 <i class="bi bi-x"></i> Cancel Prescription
                             </button>';
         }
@@ -502,10 +518,10 @@ if ($action === 'add') {
             // Status update buttons
             if ($pres['status'] === 'ISSUED') {
                 $pageContent .= '
-                        <button class="btn btn-outline-success" onclick="updateStatus(' . $pres['id'] . ', \'FILLED\')" title="Mark as Filled">
+                        <button class="btn btn-outline-success" onclick="updateStatus(\'' . $pres['id'] . '\', \'FILLED\')" title="Mark as Filled">
                             <i class="bi bi-check"></i>
                         </button>
-                        <button class="btn btn-outline-danger" onclick="updateStatus(' . $pres['id'] . ', \'CANCELED\')" title="Cancel">
+                        <button class="btn btn-outline-danger" onclick="updateStatus(\'' . $pres['id'] . '\', \'CANCELED\')" title="Cancel">
                             <i class="bi bi-x"></i>
                         </button>';
             }
