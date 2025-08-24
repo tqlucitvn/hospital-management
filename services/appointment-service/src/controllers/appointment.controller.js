@@ -72,8 +72,15 @@ exports.list = async (_req, res, next) => {
 
 exports.updateStatus = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const { status } = req.body;
+        
+        console.log('updateStatus called with ID:', id, 'status:', status);
+        
+        if (!id) {
+            return res.status(400).json({ error: 'ID parameter is required' });
+        }
+        
         if (!status || !VALID_STATUS.includes(status))
             return res.status(400).json({ error: 'Invalid status' });
 
@@ -120,7 +127,13 @@ exports.updateStatus = async (req, res, next) => {
 
 exports.getById = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
+        console.log('getById called with ID:', id, 'type:', typeof id);
+        
+        if (!id) {
+            return res.status(400).json({ error: 'ID parameter is required' });
+        }
+        
         const appointment = await prisma.appointment.findUnique({
             where: { id: id }
         });
@@ -131,14 +144,19 @@ exports.getById = async (req, res, next) => {
         
         res.json(appointment);
     } catch (e) {
+        console.error('getById error:', e);
         next(e);
     }
 };
 
 exports.update = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const { patientId, doctorId, startTime, endTime, reason } = req.body;
+        
+        if (!id) {
+            return res.status(400).json({ error: 'ID parameter is required' });
+        }
         
         if (!patientId || !doctorId || !startTime || !endTime) {
             return res.status(400).json({ error: 'Missing fields' });
@@ -151,7 +169,7 @@ exports.update = async (req, res, next) => {
 
         // Check if appointment exists
         const existing = await prisma.appointment.findUnique({
-            where: { id: parseInt(id) }
+            where: { id: id }
         });
         
         if (!existing) {
@@ -164,7 +182,7 @@ exports.update = async (req, res, next) => {
                 doctorId,
                 startTime: { lt: end },
                 endTime: { gt: start },
-                id: { not: parseInt(id) }
+                id: { not: id }
             }
         });
 
@@ -173,7 +191,7 @@ exports.update = async (req, res, next) => {
         }
 
         const appointment = await prisma.appointment.update({
-            where: { id: parseInt(id) },
+            where: { id: id },
             data: { patientId, doctorId, startTime: start, endTime: end, reason }
         });
 
@@ -195,7 +213,12 @@ exports.update = async (req, res, next) => {
 
 exports.delete = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
+        
+        if (!id) {
+            return res.status(400).json({ error: 'ID parameter is required' });
+        }
+        
         await prisma.appointment.delete({ where: { id } });
 
         publishEvent(EXCHANGE, 'appointment.deleted', {

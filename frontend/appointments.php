@@ -110,11 +110,19 @@ $appointmentId = $_GET['id'] ?? null;
 
 // Handle view and edit actions
 if (($action === 'view' || $action === 'edit') && $appointmentId) {
-    $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'GET', null, $token);
+    $apiUrl = APPOINTMENT_SERVICE_URL . '/' . $appointmentId;
+    $debugLog = "Making API call to: $apiUrl with ID: $appointmentId\n";
+    file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
+    
+    $response = makeApiCall($apiUrl, 'GET', null, $token);
+    
+    $debugLog = "View API Response: " . print_r($response, true) . "\n";
+    file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
+    
     if ($response['status_code'] === 200) {
         $appointment = $response['data'];
     } else {
-        $error = 'Appointment not found.';
+        $error = 'Appointment not found. API returned: ' . $response['status_code'];
     }
 }
 
@@ -262,14 +270,34 @@ if ($action === 'add') {
     
     foreach ($patients as $p) {
         if ($p['id'] == $appointment['patientId']) {
-            $patientName = $p['firstName'] . ' ' . $p['lastName'];
+            // Handle different patient data structures
+            if (isset($p['fullName'])) {
+                $patientName = $p['fullName'];
+            } elseif (isset($p['firstName']) && isset($p['lastName'])) {
+                $patientName = $p['firstName'] . ' ' . $p['lastName'];
+            } elseif (isset($p['name'])) {
+                $patientName = $p['name'];
+            } elseif (isset($p['email'])) {
+                $patientName = $p['email'];
+            } else {
+                $patientName = 'Patient ID:' . $p['id'];
+            }
             break;
         }
     }
     
     foreach ($doctors as $d) {
         if ($d['id'] == $appointment['doctorId']) {
-            $doctorName = 'Dr. ' . $d['firstName'] . ' ' . $d['lastName'];
+            // Handle different user data structures
+            if (isset($d['firstName']) && isset($d['lastName'])) {
+                $doctorName = 'Dr. ' . $d['firstName'] . ' ' . $d['lastName'];
+            } elseif (isset($d['email'])) {
+                $doctorName = 'Dr. ' . $d['email'];
+            } elseif (isset($d['username'])) {
+                $doctorName = 'Dr. ' . $d['username'];
+            } else {
+                $doctorName = 'Dr. ID:' . $d['id'];
+            }
             break;
         }
     }
