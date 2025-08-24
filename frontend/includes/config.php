@@ -69,8 +69,8 @@ function makeApiCallCurl($url, $method = 'GET', $data = null, $token = null) {
     }
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     
-    // Data for POST/PUT requests
-    if ($data && in_array($method, ['POST', 'PUT'])) {
+    // Data for POST/PUT/PATCH requests
+    if ($data && in_array($method, ['POST', 'PUT', 'PATCH'])) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     }
     
@@ -112,8 +112,8 @@ function makeApiCallFileGetContents($url, $method = 'GET', $data = null, $token 
         ]
     ];
     
-    // Add data for POST/PUT requests
-    if ($data && in_array($method, ['POST', 'PUT'])) {
+    // Add data for POST/PUT/PATCH requests
+    if ($data && in_array($method, ['POST', 'PUT', 'PATCH'])) {
         $options['http']['content'] = json_encode($data);
     }
     

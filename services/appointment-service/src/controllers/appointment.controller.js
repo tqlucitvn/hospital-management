@@ -118,6 +118,81 @@ exports.updateStatus = async (req, res, next) => {
     }
 };
 
+exports.getById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const appointment = await prisma.appointment.findUnique({
+            where: { id: id }
+        });
+        
+        if (!appointment) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+        
+        res.json(appointment);
+    } catch (e) {
+        next(e);
+    }
+};
+
+exports.update = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { patientId, doctorId, startTime, endTime, reason } = req.body;
+        
+        if (!patientId || !doctorId || !startTime || !endTime) {
+            return res.status(400).json({ error: 'Missing fields' });
+        }
+
+        const start = parseDate(startTime);
+        const end = parseDate(endTime);
+        if (!start || !end) return res.status(400).json({ error: 'Invalid datetime format' });
+        if (end <= start) return res.status(400).json({ error: 'Invalid time range' });
+
+        // Check if appointment exists
+        const existing = await prisma.appointment.findUnique({
+            where: { id: parseInt(id) }
+        });
+        
+        if (!existing) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+
+        // Check overlap for same doctor (excluding current appointment)
+        const overlap = await prisma.appointment.findFirst({
+            where: {
+                doctorId,
+                startTime: { lt: end },
+                endTime: { gt: start },
+                id: { not: parseInt(id) }
+            }
+        });
+
+        if (overlap) {
+            return res.status(409).json({ error: 'Doctor timeslot conflict' });
+        }
+
+        const appointment = await prisma.appointment.update({
+            where: { id: parseInt(id) },
+            data: { patientId, doctorId, startTime: start, endTime: end, reason }
+        });
+
+        publishEvent(EXCHANGE, 'appointment.updated', {
+            type: 'appointment.updated',
+            id: appointment.id,
+            patientId: appointment.patientId,
+            doctorId: appointment.doctorId,
+            startTime: appointment.startTime,
+            endTime: appointment.endTime,
+            ts: new Date().toISOString()
+        }).catch(() => { });
+
+        res.json(appointment);
+    } catch (e) {
+        next(e);
+    }
+};
+
 exports.delete = async (req, res, next) => {
     try {
         const { id } = req.params;
