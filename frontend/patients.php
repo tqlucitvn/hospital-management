@@ -132,6 +132,20 @@ try {
         } else {
             $error = handleApiError($response) ?: 'Patient not found.';
         }
+    } elseif ($action === 'view' && $patientId) {
+        // Handle view patient details
+        $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'GET', null, $token);
+        
+        // Debug logging for view action
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("Patient View Response for ID $patientId: " . json_encode($response));
+        }
+        
+        if ($response['status_code'] === 200) {
+            $patient = $response['data'];
+        } else {
+            $error = handleApiError($response) ?: 'Patient not found.';
+        }
     }
 } catch (Exception $e) {
     $error = 'System error: ' . $e->getMessage();
@@ -165,6 +179,17 @@ ob_start();
     <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle"></i>
         <?php echo $error; ?>
+        
+        <!-- Debug info for development -->
+        <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+        <hr>
+        <small>
+            <strong>Debug Info:</strong><br>
+            Action: <?php echo $action; ?><br>
+            Patient ID: <?php echo $patientId ?? 'N/A'; ?><br>
+            Patient Data: <?php echo $patient ? 'Found' : 'Not Found'; ?>
+        </small>
+        <?php endif; ?>
     </div>
 <?php endif; ?>
 
@@ -428,6 +453,195 @@ ob_start();
     </div>
 </div>
 
+<?php elseif ($action === 'view' && !$patient): ?>
+<!-- Patient Not Found -->
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-person-x text-muted" style="font-size: 4rem;"></i>
+                <h3 class="mt-3 text-muted">Patient Not Found</h3>
+                <p class="text-muted">The patient you're looking for could not be found or you don't have permission to view it.</p>
+                <a href="patients.php" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Patient List
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php elseif ($action === 'view' && $patient): ?>
+<!-- Patient Details View -->
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-badge"></i>
+                        Patient Details
+                    </h5>
+                    <div>
+                        <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
+                        <a href="patients.php?action=edit&id=<?php echo $patient['id']; ?>" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <?php endif; ?>
+                        <a href="patients.php" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <div class="row">
+                    <!-- Patient Avatar & Basic Info -->
+                    <div class="col-md-4 text-center mb-4">
+                        <div class="patient-avatar mb-3">
+                            <div class="avatar-circle mx-auto bg-primary text-white d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; font-size: 3rem;">
+                                <?php echo strtoupper(substr($patient['fullName'] ?? 'P', 0, 1)); ?>
+                            </div>
+                        </div>
+                        <h4><?php echo sanitize($patient['fullName'] ?? 'N/A'); ?></h4>
+                        <p class="text-muted mb-0">Patient ID: <?php echo substr($patient['id'] ?? 'N/A', 0, 8); ?>...</p>
+                        <p class="text-muted">
+                            <i class="bi bi-calendar"></i>
+                            Registered: <?php echo isset($patient['createdAt']) ? date('M j, Y', strtotime($patient['createdAt'])) : 'N/A'; ?>
+                        </p>
+                    </div>
+                    
+                    <!-- Patient Details -->
+                    <div class="col-md-8">
+                        <div class="row">
+                            <!-- Personal Information -->
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-person"></i> Personal Information
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted">Full Name</label>
+                                <p class="fw-bold"><?php echo sanitize($patient['fullName'] ?? 'N/A'); ?></p>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted">Email</label>
+                                <p class="fw-bold">
+                                    <?php if ($patient['email'] ?? false): ?>
+                                        <a href="mailto:<?php echo $patient['email']; ?>"><?php echo sanitize($patient['email']); ?></a>
+                                    <?php else: ?>
+                                        N/A
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted">Phone</label>
+                                <p class="fw-bold">
+                                    <?php if ($patient['phone'] ?? false): ?>
+                                        <a href="tel:<?php echo $patient['phone']; ?>"><?php echo sanitize($patient['phone']); ?></a>
+                                    <?php else: ?>
+                                        N/A
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted">Date of Birth</label>
+                                <p class="fw-bold">
+                                    <?php 
+                                    if ($patient['dateOfBirth'] ?? false) {
+                                        $dob = date('M j, Y', strtotime($patient['dateOfBirth']));
+                                        $age = floor((time() - strtotime($patient['dateOfBirth'])) / 31556926);
+                                        echo $dob . ' <span class="text-muted">(' . $age . ' years old)</span>';
+                                    } else {
+                                        echo 'N/A';
+                                    }
+                                    ?>
+                                </p>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted">Gender</label>
+                                <p class="fw-bold">
+                                    <i class="bi bi-<?php echo ($patient['gender'] ?? '') === 'male' ? 'gender-male text-primary' : 'gender-female text-pink'; ?>"></i>
+                                    <?php echo ucfirst($patient['gender'] ?? 'N/A'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted">Emergency Contact</label>
+                                <p class="fw-bold"><?php echo sanitize($patient['emergencyContact'] ?? 'N/A'); ?></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Address -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-geo-alt"></i> Address Information
+                                </h6>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label text-muted">Address</label>
+                                <p class="fw-bold"><?php echo nl2br(sanitize($patient['address'] ?? 'N/A')); ?></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Medical History -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-heart-pulse"></i> Medical Information
+                                </h6>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label text-muted">Medical History</label>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <?php if ($patient['medicalHistory'] ?? false): ?>
+                                            <p class="mb-0"><?php echo nl2br(sanitize($patient['medicalHistory'])); ?></p>
+                                        <?php else: ?>
+                                            <p class="mb-0 text-muted">No medical history recorded.</p>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="d-flex gap-2 justify-content-end">
+                            <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
+                            <a href="appointments.php?action=add&patient_id=<?php echo $patient['id']; ?>" class="btn btn-outline-success">
+                                <i class="bi bi-calendar-plus"></i> Schedule Appointment
+                            </a>
+                            <?php endif; ?>
+                            
+                            <?php if (hasAnyRole(['ADMIN', 'DOCTOR'])): ?>
+                            <a href="prescriptions.php?action=add&patient_id=<?php echo $patient['id']; ?>" class="btn btn-outline-info">
+                                <i class="bi bi-prescription"></i> Create Prescription
+                            </a>
+                            <?php endif; ?>
+                            
+                            <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
+                            <a href="patients.php?action=edit&id=<?php echo $patient['id']; ?>" class="btn btn-primary">
+                                <i class="bi bi-pencil"></i> Edit Patient
+                            </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php endif; ?>
 
 <!-- Additional CSS -->
@@ -451,6 +665,27 @@ ob_start();
     border-top: none;
     font-weight: 600;
     background-color: #f8f9fa;
+}
+
+/* Patient View Styles */
+.patient-avatar .avatar-circle {
+    border-radius: 50%;
+    border: 4px solid #fff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.patient-details .form-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.patient-details p.fw-bold {
+    font-size: 1rem;
+    color: #333;
+    margin-bottom: 0;
 }
 </style>
 
