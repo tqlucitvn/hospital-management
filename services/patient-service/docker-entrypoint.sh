@@ -2,7 +2,7 @@
 set -e
 
 echo "Prisma schema sync (patient-service)..."
-npx prisma db push --force-reset
+npx prisma db push
 
 echo "Starting patient-service..."
 exec node src/index.js

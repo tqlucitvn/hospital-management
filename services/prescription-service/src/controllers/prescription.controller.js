@@ -84,9 +84,27 @@ exports.list = async (req, res) => {
         const rows = await prisma.prescription.findMany({
             where,
             orderBy: { createdAt: 'desc' },
-            select: { id: true, patientId: true, doctorId: true, status: true, createdAt: true, updatedAt: true }
+            select: {
+                id: true,
+                patientId: true,
+                doctorId: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+                _count: { select: { items: true } }
+            }
         });
-        res.json(rows);
+        // Map to add itemsCount field
+        const mapped = rows.map(p => ({
+            id: p.id,
+            patientId: p.patientId,
+            doctorId: p.doctorId,
+            status: p.status,
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+            itemsCount: p._count.items
+        }));
+        res.json(mapped);
     } catch {
         res.status(500).json({ error: 'List failed' });
     }

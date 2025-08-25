@@ -367,15 +367,16 @@ function getAppointmentStatusClass($status) {
  * Lấy CSS class cho prescription status
  * @param string $status - Status code
  */
-function getPrescriptionStatusClass($status) {
-    $classes = [
-        'PENDING' => 'badge bg-warning',
-        'DISPENSED' => 'badge bg-success',
-        'CANCELLED' => 'badge bg-danger'
-    ];
-    return $classes[$status] ?? 'badge bg-secondary';
-}
 
+function getPrescriptionStatusClass($status) {
+    switch(strtoupper($status ?? '')) {
+        case 'PENDING': return 'badge bg-warning text-dark';
+        case 'DISPENSED': return 'badge bg-success';
+        case 'CANCELLED': return 'badge bg-danger';
+        case 'COMPLETED': return 'badge bg-primary';
+        default: return 'badge bg-secondary';
+    }
+}
 // =============================================================================
 // ERROR HANDLING
 // =============================================================================
