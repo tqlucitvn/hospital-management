@@ -6,749 +6,695 @@ $pageTitle = 'Appointment Management';
 $user = getCurrentUser();
 $action = $_GET['action'] ?? 'list';
 
-// Handle form submission for creating appointment
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
-    if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $appointmentData = [
-            'patientId' => (int)$_POST['patientId'],
-            'doctorId' => (int)$_POST['doctorId'],
-            'startTime' => $_POST['startTime'],
-            'endTime' => $_POST['endTime'],
-            'reason' => sanitize($_POST['reason'])
-        ];
+$appointments = [];
+$patients = [];
+$users = [];
+$appointment = null;
+$error = '';
+$success = '';
+$pagination = '';
+
+// Helper functions
+function getPatientName($patientId, $patients) {
+    foreach ($patients as $patient) {
+        if (is_array($patient) && isset($patient['id']) && $patient['id'] == $patientId) {
+            // Check multiple possible field names for patient name
+            if (!empty($patient['fullName'])) {
+                return $patient['fullName'];
+            } elseif (!empty($patient['name'])) {
+                return $patient['name'];
+            } elseif (!empty($patient['firstName']) || !empty($patient['lastName'])) {
+                $firstName = $patient['firstName'] ?? '';
+                $lastName = $patient['lastName'] ?? '';
+                $fullName = trim($firstName . ' ' . $lastName);
+                if (!empty($fullName)) return $fullName;
+            }
+            // Fallback to Patient ID if no name found
+            return 'Patient #' . substr($patientId, 0, 8);
+        }
+    }
+    return 'Unknown Patient';
+}
+
+function getDoctorName($doctorId, $users) {
+    foreach ($users as $user) {
+        if (is_array($user) && isset($user['id']) && $user['id'] == $doctorId) {
+            // Check multiple possible field names for doctor name
+            if (!empty($user['fullName'])) {
+                return $user['fullName'];
+            } elseif (!empty($user['name'])) {
+                return $user['name'];
+            } elseif (!empty($user['firstName']) || !empty($user['lastName'])) {
+                $firstName = $user['firstName'] ?? '';
+                $lastName = $user['lastName'] ?? '';
+                $fullName = trim($firstName . ' ' . $lastName);
+                if (!empty($fullName)) return $fullName;
+            } elseif (!empty($user['email'])) {
+                // Use email without domain as fallback
+                return explode('@', $user['email'])[0];
+            }
+            // Fallback to Doctor ID if no name found
+            return 'Doctor #' . substr($doctorId, 0, 8);
+        }
+    }
+    return 'Unknown Doctor';
+}
+
+// Get search and filter parameters
+$search = $_GET['search'] ?? '';
+$page = (int)($_GET['page'] ?? 1);
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid CSRF token.';
+    } else {
+        $token = $_SESSION['token'];
         
-        if (!empty($appointmentData['patientId']) && !empty($appointmentData['doctorId']) && 
-            !empty($appointmentData['startTime']) && !empty($appointmentData['endTime'])) {
+        if ($action === 'add') {
+            // Create appointment
+            $appointmentData = [
+                'patientId' => sanitize($_POST['patientId']),
+                'doctorId' => sanitize($_POST['doctorId']),
+                'startTime' => $_POST['startTime'],
+                'endTime' => $_POST['endTime'],
+                'reason' => sanitize($_POST['reason'])
+            ];
             
-            $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'POST', $appointmentData, $_SESSION['token']);
+            $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'POST', $appointmentData, $token);
             
             if ($response['status_code'] === 201) {
-                header('Location: appointments.php?success=Appointment created successfully');
-                exit();
+                $success = 'Appointment created successfully.';
+                $action = 'list'; // Switch back to list view
             } else {
-                $error = 'Failed to create appointment: ' . ($response['data']['error'] ?? 'Unknown error');
+                $error = handleApiError($response) ?: 'Failed to create appointment.';
             }
-        } else {
-            $error = 'All fields are required.';
-        }
-    } else {
-        $error = 'Invalid CSRF token.';
-    }
-}
-
-// Handle status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_status') {
-    // Debug: Log POST data to file
-    $debugLog = "POST data: " . print_r($_POST, true) . "\n";
-    file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-    
-    if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $appointmentId = $_POST['appointmentId'];
-        $newStatus = $_POST['status'];
-        
-        $debugLog = "Updating appointment ID: $appointmentId to status: $newStatus\n";
-        file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-        
-        $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId . '/status', 'PATCH', 
-                               ['status' => $newStatus], $_SESSION['token']);
-        
-        $debugLog = "API Response: " . print_r($response, true) . "\n";
-        file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-        
-        if ($response['status_code'] === 200) {
-            header('Location: appointments.php?success=Appointment status updated');
-            exit();
-        } else {
-            $error = 'Failed to update status: ' . ($response['data']['error'] ?? 'Unknown error');
-            $debugLog = "Update failed: " . $error . "\n";
-            file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-        }
-    } else {
-        $error = 'Invalid CSRF token';
-        $debugLog = "CSRF token verification failed\n";
-        file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-    }
-}
-
-// Get appointments list
-$token = $_SESSION['token'];
-$response = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', null, $token);
-$appointments = $response['status_code'] === 200 ? $response['data'] : [];
-
-// Debug: Add debug info to page (comment out for production)
-$debugInfo = '';
-// if ($response['status_code'] !== 200) {
-//     $debugInfo = '<div class="alert alert-warning">API Response: ' . $response['status_code'] . '</div>';
-// } else if (!empty($appointments)) {
-//     $debugInfo = '<div class="alert alert-info">Found ' . count($appointments) . ' appointments. First appointment ID: ' . ($appointments[0]['id'] ?? 'NO_ID') . '</div>';
-// }
-
-// Get patients and users (doctors) for dropdowns
-$patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
-$patients = [];
-if ($patientsResponse['status_code'] === 200) {
-    // Handle both old and new API response formats
-    $patients = isset($patientsResponse['data']['patients']) ? 
-                $patientsResponse['data']['patients'] : 
-                (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
-}
-
-$usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
-$users = $usersResponse['status_code'] === 200 ? $usersResponse['data'] : [];
-
-// Ensure we have arrays and filter doctors
-if (!is_array($users)) $users = [];
-if (!is_array($patients)) $patients = [];
-
-$doctors = array_filter($users, function($u) { 
-    return is_array($u) && isset($u['role']) && $u['role'] === 'DOCTOR'; 
-});
-
-// Success message
-$success = $_GET['success'] ?? '';
-$appointmentId = $_GET['id'] ?? null;
-
-// Handle view and edit actions
-if (($action === 'view' || $action === 'edit') && $appointmentId) {
-    $apiUrl = APPOINTMENT_SERVICE_URL . '/' . $appointmentId;
-    $debugLog = "Making API call to: $apiUrl with ID: $appointmentId\n";
-    file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-    
-    $response = makeApiCall($apiUrl, 'GET', null, $token);
-    
-    $debugLog = "View API Response: " . print_r($response, true) . "\n";
-    file_put_contents('debug.log', $debugLog, FILE_APPEND | LOCK_EX);
-    
-    if ($response['status_code'] === 200) {
-        $appointment = $response['data'];
-    } else {
-        $error = 'Appointment not found. API returned: ' . $response['status_code'];
-    }
-}
-
-// Handle edit form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit' && $appointmentId) {
-    if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $appointmentData = [
-            'patientId' => (int)$_POST['patientId'],
-            'doctorId' => (int)$_POST['doctorId'],
-            'startTime' => $_POST['startTime'],
-            'endTime' => $_POST['endTime'],
-            'reason' => sanitize($_POST['reason'])
-        ];
-        
-        if (!empty($appointmentData['patientId']) && !empty($appointmentData['doctorId']) && 
-            !empty($appointmentData['startTime']) && !empty($appointmentData['endTime'])) {
+        } elseif ($action === 'edit' && isset($_POST['id'])) {
+            // Update appointment
+            $appointmentId = $_POST['id'];
+            $appointmentData = [
+                'patientId' => sanitize($_POST['patientId']),
+                'doctorId' => sanitize($_POST['doctorId']),
+                'startTime' => $_POST['startTime'],
+                'endTime' => $_POST['endTime'],
+                'reason' => sanitize($_POST['reason']),
+                'status' => sanitize($_POST['status'])
+            ];
             
-            $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'PUT', $appointmentData, $_SESSION['token']);
+            $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'PUT', $appointmentData, $token);
             
             if ($response['status_code'] === 200) {
-                header('Location: appointments.php?success=Appointment updated successfully');
-                exit();
+                $success = 'Appointment updated successfully.';
+                $action = 'list';
             } else {
-                $error = 'Failed to update appointment: ' . ($response['data']['error'] ?? 'Unknown error');
+                $error = handleApiError($response) ?: 'Failed to update appointment.';
             }
-        } else {
-            $error = 'All fields are required.';
         }
-    } else {
-        $error = 'Invalid CSRF token.';
     }
 }
 
-// Set page content based on action
-if ($action === 'add') {
-    $pageContent = '
-    <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">Schedule New Appointment</h1>
-            <a href="appointments.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Appointments
-            </a>
-        </div>
-
-        ' . (isset($error) ? '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' . htmlspecialchars($error) . '</div>' : '') . '
-
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="bi bi-calendar-plus"></i> New Appointment Details
-                </h6>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="appointments.php?action=add">
-                    <input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="patientId" class="form-label">Patient <span class="text-danger">*</span></label>
-                                <select class="form-select" id="patientId" name="patientId" required>
-                                    <option value="">Choose patient...</option>';
+// Handle delete action
+if ($action === 'delete' && isset($_GET['id'])) {
+    $token = $_SESSION['token'];
+    $appointmentId = $_GET['id'];
     
-    foreach ($patients as $patient) {
-        // Ensure patient is an array and has required fields
-        if (is_array($patient) && isset($patient['id'])) {
-            $fullName = isset($patient['fullName']) ? $patient['fullName'] : 'Unknown Patient';
-            $email = isset($patient['email']) ? $patient['email'] : '';
-            $displayText = $fullName . ($email ? ' - ' . $email : '');
-            
-            $pageContent .= '<option value="' . htmlspecialchars($patient['id']) . '">' . 
-                           htmlspecialchars($displayText) . '</option>';
-        }
-    }
+    $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'DELETE', null, $token);
     
-    $pageContent .= '
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="doctorId" class="form-label">Doctor <span class="text-danger">*</span></label>
-                                <select class="form-select" id="doctorId" name="doctorId" required>
-                                    <option value="">Choose doctor...</option>';
-    
-    foreach ($doctors as $doctor) {
-        // Ensure doctor is an array and has required fields
-        if (is_array($doctor) && isset($doctor['id'])) {
-            $email = isset($doctor['email']) ? $doctor['email'] : 'Unknown Doctor';
-            $displayText = 'Dr. ' . $email;
-            
-            $pageContent .= '<option value="' . htmlspecialchars($doctor['id']) . '">' . 
-                           htmlspecialchars($displayText) . '</option>';
-        }
-    }
-    
-    $pageContent .= '
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="startTime" class="form-label">Start Time <span class="text-danger">*</span></label>
-                                <input type="datetime-local" class="form-control" id="startTime" name="startTime" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="endTime" class="form-label">End Time <span class="text-danger">*</span></label>
-                                <input type="datetime-local" class="form-control" id="endTime" name="endTime" required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="reason" class="form-label">Reason for Visit</label>
-                        <textarea class="form-control" id="reason" name="reason" rows="3" placeholder="Describe the reason for this appointment..."></textarea>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-calendar-plus"></i> Schedule Appointment
-                        </button>
-                        <a href="appointments.php" class="btn btn-secondary">
-                            <i class="bi bi-x-circle"></i> Cancel
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>';
-} elseif ($action === 'view' && isset($appointment)) {
-    // View appointment details
-    $startTime = new DateTime($appointment['startTime']);
-    $endTime = new DateTime($appointment['endTime']);
-    $duration = $startTime->diff($endTime);
-    $durationText = $duration->h . 'h ' . $duration->i . 'm';
-    
-    // Get patient and doctor names
-    $patientName = 'Unknown Patient';
-    $doctorName = 'Unknown Doctor';
-    
-    foreach ($patients as $p) {
-        if ($p['id'] == $appointment['patientId']) {
-            // Handle different patient data structures
-            if (isset($p['fullName'])) {
-                $patientName = $p['fullName'];
-            } elseif (isset($p['firstName']) && isset($p['lastName'])) {
-                $patientName = $p['firstName'] . ' ' . $p['lastName'];
-            } elseif (isset($p['name'])) {
-                $patientName = $p['name'];
-            } elseif (isset($p['email'])) {
-                $patientName = $p['email'];
-            } else {
-                $patientName = 'Patient ID:' . $p['id'];
-            }
-            break;
-        }
-    }
-    
-    foreach ($doctors as $d) {
-        if ($d['id'] == $appointment['doctorId']) {
-            // Handle different user data structures
-            if (isset($d['firstName']) && isset($d['lastName'])) {
-                $doctorName = 'Dr. ' . $d['firstName'] . ' ' . $d['lastName'];
-            } elseif (isset($d['email'])) {
-                $doctorName = 'Dr. ' . $d['email'];
-            } elseif (isset($d['username'])) {
-                $doctorName = 'Dr. ' . $d['username'];
-            } else {
-                $doctorName = 'Dr. ID:' . $d['id'];
-            }
-            break;
-        }
-    }
-    
-    $statusClass = match($appointment['status']) {
-        'SCHEDULED' => 'bg-warning',
-        'CONFIRMED' => 'bg-success',
-        'COMPLETED' => 'bg-primary',
-        'CANCELED' => 'bg-danger',
-        default => 'bg-secondary'
-    };
-    
-    $pageContent = '
-    <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">Appointment Details</h1>
-            <div>
-                <a href="appointments.php?action=edit&id=' . $appointment['id'] . '" class="btn btn-warning">
-                    <i class="bi bi-pencil"></i> Edit
-                </a>
-                <a href="appointments.php" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Back
-                </a>
-            </div>
-        </div>
-
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Appointment Information</h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <td><strong>Appointment ID:</strong></td>
-                                <td>' . htmlspecialchars($appointment['id']) . '</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Patient:</strong></td>
-                                <td>' . htmlspecialchars($patientName) . '</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Doctor:</strong></td>
-                                <td>' . htmlspecialchars($doctorName) . '</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Status:</strong></td>
-                                <td><span class="badge ' . $statusClass . '">' . htmlspecialchars($appointment['status']) . '</span></td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <td><strong>Date & Time:</strong></td>
-                                <td>' . $startTime->format('M d, Y H:i') . '</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Duration:</strong></td>
-                                <td>' . $durationText . '</td>
-                            </tr>
-                            <tr>
-                                <td><strong>End Time:</strong></td>
-                                <td>' . $endTime->format('H:i') . '</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Reason:</strong></td>
-                                <td>' . htmlspecialchars($appointment['reason'] ?? 'No reason specified') . '</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>';
-} elseif ($action === 'edit' && isset($appointment)) {
-    // Edit appointment form
-    $startTime = new DateTime($appointment['startTime']);
-    $endTime = new DateTime($appointment['endTime']);
-    
-    $pageContent = '
-    <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">Edit Appointment</h1>
-            <a href="appointments.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Appointments
-            </a>
-        </div>
-
-        ' . (isset($error) ? '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' . htmlspecialchars($error) . '</div>' : '') . '
-
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Edit Appointment Details</h6>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="appointments.php?action=edit&id=' . $appointment['id'] . '">
-                    <input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="patientId" class="form-label">Patient <span class="text-danger">*</span></label>
-                                <select class="form-select" id="patientId" name="patientId" required>
-                                    <option value="">Select Patient</option>';
-                                    
-    foreach ($patients as $patient) {
-        $selected = $patient['id'] == $appointment['patientId'] ? 'selected' : '';
-        
-        // Handle different patient data structures
-        $patientDisplayName = '';
-        if (isset($patient['fullName'])) {
-            $patientDisplayName = $patient['fullName'];
-        } elseif (isset($patient['firstName']) && isset($patient['lastName'])) {
-            $patientDisplayName = $patient['firstName'] . ' ' . $patient['lastName'];
-        } elseif (isset($patient['name'])) {
-            $patientDisplayName = $patient['name'];
-        } elseif (isset($patient['email'])) {
-            $patientDisplayName = $patient['email'];
-        } else {
-            $patientDisplayName = 'Patient ID:' . $patient['id'];
-        }
-        
-        $pageContent .= '<option value="' . $patient['id'] . '" ' . $selected . '>' . 
-                       htmlspecialchars($patientDisplayName) . '</option>';
-    }
-    
-    $pageContent .= '
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="doctorId" class="form-label">Doctor <span class="text-danger">*</span></label>
-                                <select class="form-select" id="doctorId" name="doctorId" required>
-                                    <option value="">Select Doctor</option>';
-                                    
-    foreach ($doctors as $doctor) {
-        $selected = $doctor['id'] == $appointment['doctorId'] ? 'selected' : '';
-        
-        // Handle different doctor data structures
-        $doctorDisplayName = 'Dr. ';
-        if (isset($doctor['firstName']) && isset($doctor['lastName'])) {
-            $doctorDisplayName .= $doctor['firstName'] . ' ' . $doctor['lastName'];
-        } elseif (isset($doctor['email'])) {
-            $doctorDisplayName .= $doctor['email'];
-        } elseif (isset($doctor['username'])) {
-            $doctorDisplayName .= $doctor['username'];
-        } else {
-            $doctorDisplayName .= 'ID:' . $doctor['id'];
-        }
-        
-        $pageContent .= '<option value="' . $doctor['id'] . '" ' . $selected . '>' . 
-                       htmlspecialchars($doctorDisplayName) . '</option>';
-    }
-    
-    $pageContent .= '
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="startTime" class="form-label">Start Time <span class="text-danger">*</span></label>
-                                <input type="datetime-local" class="form-control" id="startTime" name="startTime" 
-                                       value="' . $startTime->format('Y-m-d\TH:i') . '" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="endTime" class="form-label">End Time <span class="text-danger">*</span></label>
-                                <input type="datetime-local" class="form-control" id="endTime" name="endTime" 
-                                       value="' . $endTime->format('Y-m-d\TH:i') . '" required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="reason" class="form-label">Reason for Visit</label>
-                        <textarea class="form-control" id="reason" name="reason" rows="3">' . 
-                        htmlspecialchars($appointment['reason'] ?? '') . '</textarea>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Update Appointment
-                        </button>
-                        <a href="appointments.php" class="btn btn-secondary">
-                            <i class="bi bi-x"></i> Cancel
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>';
-} else {
-    // List view
-    $pageContent = '
-    <div class="container-fluid">
-        ' . (!empty($success) ? '<div class="alert alert-success"><i class="bi bi-check-circle"></i> ' . htmlspecialchars($success) . '</div>' : '') . '
-        ' . (!empty($error) ? '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' . htmlspecialchars($error) . '</div>' : '') . '
-        ' . $debugInfo . '
-        
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">Appointment Management</h1>
-            <a href="appointments.php?action=add" class="btn btn-primary">
-                <i class="bi bi-plus"></i> Schedule Appointment
-            </a>
-        </div>
-
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="bi bi-calendar-event"></i> All Appointments
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>ID</th>
-                                <th>Patient</th>
-                                <th>Doctor</th>
-                                <th>Date & Time</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th>Reason</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
-
-    if (empty($appointments)) {
-        $pageContent .= '<tr><td colspan="8" class="text-center text-muted">No appointments found.</td></tr>';
+    if ($response['status_code'] === 200 || $response['status_code'] === 204) {
+        $success = 'Appointment deleted successfully.';
     } else {
-        foreach ($appointments as $appt) {
-            // Get patient and doctor names
-            $patientName = 'Unknown Patient';
-            $doctorName = 'Unknown Doctor';
-            
-            foreach ($patients as $patient) {
-                if (is_array($patient) && isset($patient['id']) && $patient['id'] == $appt['patientId']) {
-                    $patientName = isset($patient['fullName']) ? $patient['fullName'] : 'Unknown Patient';
-                    break;
-                }
-            }
-            
-            foreach ($users as $user) {
-                if (is_array($user) && isset($user['id']) && $user['id'] == $appt['doctorId']) {
-                    $userEmail = isset($user['email']) ? $user['email'] : 'Unknown';
-                    $doctorName = 'Dr. ' . $userEmail;
-                    break;
-                }
-            }
-            
-            // Status badge
-            $statusClass = 'bg-secondary';
-            switch($appt['status']) {
-                case 'SCHEDULED': $statusClass = 'bg-info'; break;
-                case 'CONFIRMED': $statusClass = 'bg-success'; break;
-                case 'COMPLETED': $statusClass = 'bg-primary'; break;
-                case 'CANCELED': $statusClass = 'bg-danger'; break;
-            }
-            
-            // Calculate duration
-            $startTime = new DateTime($appt['startTime']);
-            $endTime = new DateTime($appt['endTime']);
-            $duration = $startTime->diff($endTime);
-            $durationText = $duration->h . 'h ' . $duration->i . 'm';
-            
-            $pageContent .= '<tr>
-                <td>' . htmlspecialchars($appt['id']) . '</td>
-                <td>' . htmlspecialchars($patientName) . '</td>
-                <td>' . htmlspecialchars($doctorName) . '</td>
-                <td>' . $startTime->format('M d, Y H:i') . '</td>
-                <td>' . $durationText . '</td>
-                <td><span class="badge ' . $statusClass . '">' . htmlspecialchars($appt['status']) . '</span></td>
-                <td>' . htmlspecialchars($appt['reason'] ?? '-') . '</td>
-                <td>
-                    <div class="btn-group btn-group-sm">';
-            
-            // Status update buttons based on current status
-            if ($appt['status'] === 'SCHEDULED') {
-                $pageContent .= '
-                    <button class="btn btn-outline-success status-btn" data-id="' . $appt['id'] . '" data-status="CONFIRMED" title="Confirm">
-                        <i class="bi bi-check"></i>
-                    </button>
-                    <button class="btn btn-outline-danger status-btn" data-id="' . $appt['id'] . '" data-status="CANCELED" title="Cancel">
-                        <i class="bi bi-x"></i>
-                    </button>';
-            } elseif ($appt['status'] === 'CONFIRMED') {
-                $pageContent .= '
-                    <button class="btn btn-outline-primary status-btn" data-id="' . $appt['id'] . '" data-status="COMPLETED" title="Complete">
-                        <i class="bi bi-check2-all"></i>
-                    </button>
-                    <button class="btn btn-outline-danger status-btn" data-id="' . $appt['id'] . '" data-status="CANCELED" title="Cancel">
-                        <i class="bi bi-x"></i>
-                    </button>';
-            }
-            
-            $pageContent .= '
-                        <button class="btn btn-outline-info view-btn" data-id="' . $appt['id'] . '" title="View Details">
-                            <i class="bi bi-eye"></i>
-                        </button>';
-            
-            // Add edit button for admin/receptionist
-            if (in_array($user['role'], ['ADMIN', 'RECEPTIONIST'])) {
-                $pageContent .= '
-                        <button class="btn btn-outline-warning edit-btn" data-id="' . $appt['id'] . '" title="Edit">
-                            <i class="bi bi-pencil"></i>
-                        </button>';
-            }
-            
-            $pageContent .= '
-                    </div>
-                </td>
-            </tr>';
-        }
+        $error = handleApiError($response) ?: 'Failed to delete appointment.';
     }
-
-    $pageContent .= '
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>';
+    $action = 'list';
 }
 
-// Always include the status form and JavaScript for action buttons
-$pageContent .= '
-<!-- Debug Form Test -->
-<div class="alert alert-info mb-3">
-    <strong>Debug:</strong> 
-    <button type="button" class="btn btn-sm btn-secondary" onclick="testFormSubmit()">Test Form Submit</button>
-    <div id="debugOutput"></div>
+// Fetch data based on action
+try {
+    $token = $_SESSION['token'];
+    
+    if ($action === 'list') {
+        // Build query parameters for appointments
+        $queryParams = [
+            'page' => $page,
+            'limit' => $limit
+        ];
+        if ($search) {
+            $queryParams['search'] = $search;
+        }
+        $queryString = http_build_query($queryParams);
+        
+        $response = makeApiCall(APPOINTMENT_SERVICE_URL . '?' . $queryString, 'GET', null, $token);
+        
+        if ($response['status_code'] === 200) {
+            // Handle paginated response
+            if (isset($response['data']['appointments']) && isset($response['data']['total'])) {
+                $appointments = $response['data']['appointments'];
+                $totalAppointments = $response['data']['total'];
+            } else {
+                // Fallback for non-paginated response
+                $appointments = is_array($response['data']) ? $response['data'] : [];
+                
+                // Apply client-side search if API doesn't support it
+                if ($search) {
+                    $appointments = array_filter($appointments, function($apt) use ($search) {
+                        $searchLower = strtolower($search);
+                        return stripos($apt['reason'] ?? '', $search) !== false ||
+                               stripos($apt['patientId'] ?? '', $search) !== false ||
+                               stripos($apt['doctorId'] ?? '', $search) !== false ||
+                               stripos($apt['status'] ?? '', $search) !== false;
+                    });
+                }
+                
+                $totalAppointments = count($appointments);
+                $appointments = array_slice($appointments, $offset, $limit);
+            }
+            
+            $totalPages = ceil($totalAppointments / $limit);
+            
+            // Generate pagination
+            if ($totalPages > 1) {
+                $baseUrl = 'appointments.php?';
+                if ($search) $baseUrl .= 'search=' . urlencode($search) . '&';
+                $pagination = paginate($page, $totalPages, $baseUrl);
+            }
+        } else {
+            $error = handleApiError($response) ?: 'Failed to load appointments.';
+        }
+    } elseif (($action === 'edit' || $action === 'view') && isset($_GET['id'])) {
+        $appointmentId = $_GET['id'];
+        $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'GET', null, $token);
+        if ($response['status_code'] === 200) {
+            $appointment = $response['data'];
+        } else {
+            $error = handleApiError($response) ?: 'Appointment not found.';
+        }
+    }
+    
+    // Get patients and users for dropdowns (for add/edit forms)
+    if ($action === 'add' || $action === 'edit') {
+        $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+        if ($patientsResponse['status_code'] === 200) {
+            $patients = isset($patientsResponse['data']['patients']) ? 
+                        $patientsResponse['data']['patients'] : 
+                        (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+        }
+        
+        $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+        if ($usersResponse['status_code'] === 200) {
+            $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
+            // Filter doctors
+            $users = array_filter($users, function($user) {
+                return isset($user['role']) && $user['role'] === 'DOCTOR';
+            });
+        }
+    }
+    
+    // For list view, get basic patient and user data for display
+    if ($action === 'list' && !empty($appointments)) {
+        $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+        if ($patientsResponse['status_code'] === 200) {
+            $patients = isset($patientsResponse['data']['patients']) ? 
+                        $patientsResponse['data']['patients'] : 
+                        (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+        }
+        
+        $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+        if ($usersResponse['status_code'] === 200) {
+            $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
+        }
+    }
+    
+} catch (Exception $e) {
+    $error = 'System error: ' . $e->getMessage();
+}
+
+// Start output buffering for page content
+ob_start();
+?>
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-calendar-check"></i>
+            Appointment Management
+        </h1>
+        <p class="text-muted mb-0">Schedule and manage patient appointments</p>
+    </div>
+    
+    <?php if ($action === 'list' && hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
+    <div>
+        <a href="appointments.php?action=add" class="btn btn-primary">
+            <i class="bi bi-calendar-plus"></i>
+            Schedule Appointment
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
-<!-- Status Update Form (Hidden) -->
-<form id="statusForm" method="POST" action="appointments.php?action=update_status" style="display: none;">
-    <input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">
-    <input type="hidden" name="appointmentId" id="statusAppointmentId">
-    <input type="hidden" name="status" id="statusValue">
-</form>
+<?php if ($error): ?>
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <?php echo $error; ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($success): ?>
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle"></i>
+        <?php echo $success; ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($action === 'list'): ?>
+<!-- Appointments List -->
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h5 class="mb-0">
+                    <i class="bi bi-list"></i>
+                    Appointments List
+                    <?php if (isset($totalAppointments) && $totalAppointments > 0): ?>
+                    <span class="badge bg-primary ms-2"><?php echo $totalAppointments; ?></span>
+                    <?php endif; ?>
+                </h5>
+            </div>
+            <div class="col-md-6">
+                <!-- Search Form -->
+                <form method="GET" class="d-flex">
+                    <input type="text" 
+                           class="form-control form-control-sm me-2" 
+                           name="search" 
+                           placeholder="Search appointments..." 
+                           value="<?php echo htmlspecialchars($search); ?>">
+                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <?php if ($search): ?>
+                    <a href="appointments.php" class="btn btn-outline-secondary btn-sm ms-1">
+                        <i class="bi bi-x"></i>
+                    </a>
+                    <?php endif; ?>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="border-0">
+                            <i class="bi bi-hash me-1"></i>ID
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-person me-1"></i>Patient
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-person-badge me-1"></i>Doctor
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-calendar-event me-1"></i>Date & Time
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-clock me-1"></i>Duration
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-flag me-1"></i>Status
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-chat-text me-1"></i>Reason
+                        </th>
+                        <th class="border-0 text-center">
+                            <i class="bi bi-gear me-1"></i>Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($appointments)): ?>
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-calendar-x text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-2 mb-0">No appointments found</p>
+                            <?php if ($search): ?>
+                            <small class="text-muted">Try adjusting your search criteria</small>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php else: ?>
+                    <?php foreach ($appointments as $appt): ?>
+                    <?php
+                    // Get patient and doctor names
+                    $patientName = getPatientName($appt['patientId'], $patients);
+                    $doctorName = getDoctorName($appt['doctorId'], $users);
+                    
+                    // Format dates
+                    $startTime = isset($appt['startTime']) ? date('M j, Y H:i', strtotime($appt['startTime'])) : 'N/A';
+                    $duration = 'N/A';
+                    if (isset($appt['startTime']) && isset($appt['endTime'])) {
+                        $start = strtotime($appt['startTime']);
+                        $end = strtotime($appt['endTime']);
+                        $minutes = ($end - $start) / 60;
+                        $duration = $minutes . ' min';
+                    }
+                    
+                    // Status styling
+                    $statusClass = getAppointmentStatusClass($appt['status'] ?? 'UNKNOWN');
+                    $statusText = ucfirst(strtolower($appt['status'] ?? 'Unknown'));
+                    ?>
+                    <tr>
+                        <td class="align-middle">
+                            <span class="text-monospace small"><?php echo htmlspecialchars(substr($appt['id'] ?? 'N/A', 0, 8)); ?>...</span>
+                        </td>
+                        <td class="align-middle">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                                    <?php echo strtoupper(substr($patientName, 0, 1)); ?>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark"><?php echo htmlspecialchars($patientName); ?></div>
+                                    <small class="text-muted">ID: <?php echo htmlspecialchars(substr($appt['patientId'] ?? 'N/A', 0, 8)); ?>...</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="align-middle">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                                    <?php echo strtoupper(substr($doctorName, 0, 1)); ?>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">Dr. <?php echo htmlspecialchars($doctorName); ?></div>
+                                    <small class="text-muted">ID: <?php echo htmlspecialchars(substr($appt['doctorId'] ?? 'N/A', 0, 8)); ?>...</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="align-middle">
+                            <div class="fw-bold text-dark"><?php echo $startTime; ?></div>
+                            <small class="text-muted"><?php echo isset($appt['startTime']) ? date('l', strtotime($appt['startTime'])) : ''; ?></small>
+                        </td>
+                        <td class="align-middle">
+                            <span class="badge bg-light text-dark"><?php echo $duration; ?></span>
+                        </td>
+                        <td class="align-middle">
+                            <span class="<?php echo $statusClass; ?>"><?php echo $statusText; ?></span>
+                        </td>
+                        <td class="align-middle">
+                            <div class="text-truncate" style="max-width: 150px;" title="<?php echo htmlspecialchars($appt['reason'] ?? 'No reason provided'); ?>">
+                                <?php echo htmlspecialchars($appt['reason'] ?? 'No reason provided'); ?>
+                            </div>
+                        </td>
+                        <td class="align-middle text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="appointments.php?action=view&id=<?php echo $appt['id']; ?>" 
+                                   class="btn btn-outline-primary btn-sm" 
+                                   title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
+                                <a href="appointments.php?action=edit&id=<?php echo $appt['id']; ?>" 
+                                   class="btn btn-outline-warning btn-sm" 
+                                   title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <?php endif; ?>
+                                <?php if (hasRole('ADMIN')): ?>
+                                <button type="button" 
+                                        class="btn btn-outline-danger btn-sm" 
+                                        onclick="confirmDelete('<?php echo $appt['id']; ?>', '<?php echo htmlspecialchars($patientName); ?>')" 
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    <?php if ($pagination): ?>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="text-muted">
+            Showing <?php echo (($page - 1) * $limit + 1); ?> to <?php echo min($page * $limit, $totalAppointments ?? 0); ?> of <?php echo $totalAppointments ?? 0; ?> appointments
+        </div>
+        <nav>
+            <?php echo $pagination; ?>
+        </nav>
+    </div>
+    <?php endif; ?>
+</div>
+
+<?php elseif ($action === 'add' || ($action === 'edit' && $appointment)): ?>
+<!-- Add/Edit Appointment Form -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-<?php echo $action === 'add' ? 'calendar-plus' : 'pencil'; ?>"></i>
+                    <?php echo $action === 'add' ? 'Schedule New Appointment' : 'Edit Appointment'; ?>
+                </h5>
+            </div>
+            
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo getCsrfToken(); ?>">
+                    <?php if ($action === 'edit'): ?>
+                    <input type="hidden" name="id" value="<?php echo $appointment['id']; ?>">
+                    <?php endif; ?>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patientId" class="form-label">Patient *</label>
+                            <select class="form-select" id="patientId" name="patientId" required>
+                                <option value="">Select a patient...</option>
+                                <?php foreach ($patients as $patient): ?>
+                                <option value="<?php echo $patient['id']; ?>" 
+                                        <?php echo ($action === 'edit' && $appointment['patientId'] == $patient['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($patient['fullName'] ?? 'Unknown'); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="doctorId" class="form-label">Doctor *</label>
+                            <select class="form-select" id="doctorId" name="doctorId" required>
+                                <option value="">Select a doctor...</option>
+                                <?php foreach ($users as $doctor): ?>
+                                <option value="<?php echo $doctor['id']; ?>" 
+                                        <?php echo ($action === 'edit' && $appointment['doctorId'] == $doctor['id']) ? 'selected' : ''; ?>>
+                                    Dr. <?php echo htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? 'Unknown'); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="startTime" class="form-label">Start Date & Time *</label>
+                            <input type="datetime-local" 
+                                   class="form-control" 
+                                   id="startTime" 
+                                   name="startTime" 
+                                   value="<?php echo $action === 'edit' ? date('Y-m-d\TH:i', strtotime($appointment['startTime'])) : ''; ?>" 
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="endTime" class="form-label">End Date & Time *</label>
+                            <input type="datetime-local" 
+                                   class="form-control" 
+                                   id="endTime" 
+                                   name="endTime" 
+                                   value="<?php echo $action === 'edit' ? date('Y-m-d\TH:i', strtotime($appointment['endTime'])) : ''; ?>" 
+                                   required>
+                        </div>
+                        
+                        <?php if ($action === 'edit'): ?>
+                        <div class="col-md-6 mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="SCHEDULED" <?php echo ($appointment['status'] ?? '') === 'SCHEDULED' ? 'selected' : ''; ?>>Scheduled</option>
+                                <option value="CONFIRMED" <?php echo ($appointment['status'] ?? '') === 'CONFIRMED' ? 'selected' : ''; ?>>Confirmed</option>
+                                <option value="COMPLETED" <?php echo ($appointment['status'] ?? '') === 'COMPLETED' ? 'selected' : ''; ?>>Completed</option>
+                                <option value="CANCELED" <?php echo ($appointment['status'] ?? '') === 'CANCELED' ? 'selected' : ''; ?>>Canceled</option>
+                            </select>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <div class="col-12 mb-3">
+                            <label for="reason" class="form-label">Reason for Visit</label>
+                            <textarea class="form-control" 
+                                      id="reason" 
+                                      name="reason" 
+                                      rows="3" 
+                                      placeholder="Enter the reason for this appointment..."><?php echo $action === 'edit' ? htmlspecialchars($appointment['reason'] ?? '') : ''; ?></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="appointments.php" class="btn btn-outline-secondary">
+                            <i class="bi bi-x"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check"></i> <?php echo $action === 'add' ? 'Schedule Appointment' : 'Update Appointment'; ?>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php elseif ($action === 'view' && $appointment): ?>
+<!-- View Appointment Details -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar-event"></i>
+                        Appointment Details
+                    </h5>
+                    <div>
+                        <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
+                        <a href="appointments.php?action=edit&id=<?php echo $appointment['id']; ?>" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <?php endif; ?>
+                        <a href="appointments.php" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Appointment ID</label>
+                        <p class="fw-bold text-monospace"><?php echo htmlspecialchars($appointment['id']); ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Status</label>
+                        <p><span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($appointment['status'] ?? 'Unknown')); ?></span></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Patient</label>
+                        <p class="fw-bold"><?php echo htmlspecialchars(getPatientName($appointment['patientId'], $patients)); ?></p>
+                        <small class="text-muted">ID: <?php echo htmlspecialchars($appointment['patientId']); ?></small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Doctor</label>
+                        <p class="fw-bold">Dr. <?php echo htmlspecialchars(getDoctorName($appointment['doctorId'], $users)); ?></p>
+                        <small class="text-muted">ID: <?php echo htmlspecialchars($appointment['doctorId']); ?></small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Start Date & Time</label>
+                        <p class="fw-bold"><?php echo isset($appointment['startTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['startTime'])) : 'N/A'; ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">End Date & Time</label>
+                        <p class="fw-bold"><?php echo isset($appointment['endTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['endTime'])) : 'N/A'; ?></p>
+                    </div>
+                    
+                    <div class="col-12 mb-3">
+                        <label class="form-label text-muted">Reason for Visit</label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <?php if ($appointment['reason'] ?? false): ?>
+                                    <p class="mb-0"><?php echo nl2br(htmlspecialchars($appointment['reason'])); ?></p>
+                                <?php else: ?>
+                                    <p class="mb-0 text-muted">No reason provided.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
+                    <a href="appointments.php?action=edit&id=<?php echo $appointment['id']; ?>" class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> Edit Appointment
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php elseif ($action === 'view' && !$appointment): ?>
+<!-- Appointment Not Found -->
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-calendar-x text-muted" style="font-size: 4rem;"></i>
+                <h3 class="mt-3 text-muted">Appointment Not Found</h3>
+                <p class="text-muted">The appointment you're looking for could not be found or you don't have permission to view it.</p>
+                <a href="appointments.php" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Appointments List
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the appointment for <strong id="appointmentPatient"></strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete Appointment</a>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-function testFormSubmit() {
-    console.log("Testing form submit...");
-    document.getElementById("statusAppointmentId").value = "test-id-123";
-    document.getElementById("statusValue").value = "CONFIRMED";
-    
-    const form = document.getElementById("statusForm");
-    console.log("Form:", form);
-    console.log("Form action:", form.action);
-    console.log("Form method:", form.method);
-    
-    // Add visible indicator
-    document.getElementById("debugOutput").innerHTML = "<br>Form submitted with test data. Check page reload.";
-    
-    form.submit();
+function confirmDelete(appointmentId, patientName) {
+    document.getElementById('appointmentPatient').textContent = patientName;
+    document.getElementById('confirmDeleteBtn').href = 'appointments.php?action=delete&id=' + appointmentId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-    console.log("Appointment JavaScript loaded");
-    
-    // Status update buttons
-    document.querySelectorAll(".status-btn").forEach(button => {
-        button.addEventListener("click", function() {
-            const appointmentId = this.getAttribute("data-id");
-            const status = this.getAttribute("data-status");
-            updateStatus(appointmentId, status);
-        });
-    });
-    
-    // View details buttons
-    document.querySelectorAll(".view-btn").forEach(button => {
-        button.addEventListener("click", function() {
-            const appointmentId = this.getAttribute("data-id");
-            viewDetails(appointmentId);
-        });
-    });
-    
-    // Edit buttons
-    document.querySelectorAll(".edit-btn").forEach(button => {
-        button.addEventListener("click", function() {
-            const appointmentId = this.getAttribute("data-id");
-            editAppointment(appointmentId);
-        });
-    });
+// Auto-focus first input
+document.addEventListener('DOMContentLoaded', function() {
+    const firstInput = document.querySelector('form input:not([type="hidden"]), form select');
+    if (firstInput) {
+        firstInput.focus();
+    }
 });
+</script>
 
-function updateStatus(appointmentId, status) {
-    console.log("updateStatus called with:", appointmentId, status);
-    console.log("appointmentId type:", typeof appointmentId);
-    console.log("appointmentId length:", appointmentId ? appointmentId.length : "null");
-    
-    if (confirm("Are you sure you want to update this appointment status to " + status + "?")) {
-        console.log("User confirmed, updating status");
-        console.log("Setting form values...");
-        
-        const form = document.getElementById("statusForm");
-        const appointmentIdField = document.getElementById("statusAppointmentId");
-        const statusField = document.getElementById("statusValue");
-        
-        if (!form || !appointmentIdField || !statusField) {
-            console.error("Form elements not found:", {form, appointmentIdField, statusField});
-            alert("Error: Form elements not found");
-            return;
-        }
-        
-        appointmentIdField.value = appointmentId;
-        statusField.value = status;
-        
-        console.log("Form appointmentId value:", appointmentIdField.value);
-        console.log("Form status value:", statusField.value);
-        console.log("Form action:", form.action);
-        console.log("Submitting form...");
-        
-        form.submit();
-        console.log("Form submitted");
-    } else {
-        console.log("User cancelled");
-    }
-}
-
-function viewDetails(appointmentId) {
-    console.log("viewDetails called with:", appointmentId);
-    console.log("appointmentId type:", typeof appointmentId);
-    console.log("appointmentId value:", JSON.stringify(appointmentId));
-    
-    // Validate appointment ID (removed length restriction for cuid)
-    if (!appointmentId || appointmentId === "NO_ID") {
-        console.error("Invalid appointment ID:", appointmentId);
-        alert("Error: Invalid appointment ID. ID: " + appointmentId + ", Type: " + typeof appointmentId);
-        return;
-    }
-    
-    console.log("Redirecting to view page with ID:", appointmentId);
-    window.location.href = "appointments.php?action=view&id=" + appointmentId;
-}
-
-function editAppointment(appointmentId) {
-    console.log("editAppointment called with:", appointmentId);
-    window.location.href = "appointments.php?action=edit&id=" + appointmentId;
-}
-</script>';
-
-// Include layout
+<?php
+$pageContent = ob_get_clean();
 include 'includes/layout.php';
 ?>

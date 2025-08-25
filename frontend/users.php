@@ -6,323 +6,711 @@ $pageTitle = 'User Management';
 $user = getCurrentUser();
 $action = $_GET['action'] ?? 'list';
 
+$users = [];
+$selectedUser = null;
+$error = '';
+$success = '';
+$pagination = '';
+
+// Helper functions
+function getUserStatusClass($isActive = true) {
+    return $isActive ? 'badge bg-success' : 'badge bg-danger';
+}
+
+function getRoleClass($role) {
+    switch(strtoupper($role ?? '')) {
+        case 'ADMIN': return 'badge bg-danger';
+        case 'DOCTOR': return 'badge bg-primary';
+        case 'NURSE': return 'badge bg-info';
+        case 'RECEPTIONIST': return 'badge bg-warning text-dark';
+        default: return 'badge bg-secondary';
+    }
+}
+
+function getUserAvatar($fullName = '', $email = '') {
+    // Prioritize fullName, then email as fallback
+    $name = '';
+    if (!empty($fullName) && $fullName !== 'Not provided') {
+        $name = $fullName;
+    } elseif (!empty($email)) {
+        $name = $email;
+    }
+    return strtoupper(substr($name, 0, 1));
+}
+
+function getDisplayName($userItem) {
+    // Check multiple possible field names for user's name
+    if (!empty($userItem['fullName']) && $userItem['fullName'] !== 'Not provided') {
+        return $userItem['fullName'];
+    } elseif (!empty($userItem['name'])) {
+        return $userItem['name'];
+    } elseif (!empty($userItem['firstName']) || !empty($userItem['lastName'])) {
+        $firstName = $userItem['firstName'] ?? '';
+        $lastName = $userItem['lastName'] ?? '';
+        $fullName = trim($firstName . ' ' . $lastName);
+        if (!empty($fullName)) return $fullName;
+    }
+    // Fallback to email without domain
+    if (!empty($userItem['email'])) {
+        return explode('@', $userItem['email'])[0];
+    }
+    return 'Unknown User';
+}
+
+function getPhoneNumber($userItem) {
+    // Check multiple possible field names for phone
+    if (!empty($userItem['phoneNumber'])) {
+        return $userItem['phoneNumber'];
+    } elseif (!empty($userItem['phone'])) {
+        return $userItem['phone'];
+    } elseif (!empty($userItem['mobile'])) {
+        return $userItem['mobile'];
+    }
+    return null; // Return null instead of "Not provided"
+}
+
+// Get search and filter parameters
+$search = $_GET['search'] ?? '';
+$roleFilter = $_GET['role'] ?? '';
+$page = (int)($_GET['page'] ?? 1);
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $submittedAction = $_POST['action'] ?? '';
-    
-    if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        if ($submittedAction === 'add') {
-            $email = $_POST['email'];
-            $password = $_POST['password'];
-            $role = $_POST['role'];
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid CSRF token.';
+    } else {
+        $token = $_SESSION['token'];
+        
+        if ($action === 'add') {
+            // Create user
+            $userData = [
+                'email' => sanitize($_POST['email']),
+                'password' => $_POST['password'],
+                'role' => sanitize($_POST['role']),
+                'fullName' => sanitize($_POST['fullName'] ?? ''),
+                'phoneNumber' => sanitize($_POST['phoneNumber'] ?? ''),
+                'address' => sanitize($_POST['address'] ?? '')
+            ];
             
-            $response = makeApiCall(USER_SERVICE_URL . '/register', 'POST', [
-                'email' => $email,
-                'password' => $password,
-                'role' => $role
-            ]);
+            $response = makeApiCall(USER_SERVICE_URL . '/register', 'POST', $userData);
             
             if ($response['status_code'] === 201) {
-                header('Location: users.php?success=User created successfully');
-                exit();
+                $success = 'User created successfully.';
+                $action = 'list';
             } else {
-                $error = 'Failed to create user: ' . ($response['data']['error'] ?? 'Unknown error');
+                $error = handleApiError($response) ?: 'Failed to create user.';
             }
-        } elseif ($submittedAction === 'edit_role') {
-            // Debug: Show all POST data
-            if (isset($_GET['debug'])) {
-                echo "<pre>POST Data: " . print_r($_POST, true) . "</pre>";
+        } elseif ($action === 'edit' && isset($_POST['id'])) {
+            // Update user
+            $userId = $_POST['id'];
+            $userData = [
+                'email' => sanitize($_POST['email']),
+                'role' => sanitize($_POST['role']),
+                'fullName' => sanitize($_POST['fullName'] ?? ''),
+                'phoneNumber' => sanitize($_POST['phoneNumber'] ?? ''),
+                'address' => sanitize($_POST['address'] ?? '')
+            ];
+            
+            // Add password if provided
+            if (!empty($_POST['password'])) {
+                $userData['password'] = $_POST['password'];
             }
             
+            $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'PUT', $userData, $token);
+            
+            if ($response['status_code'] === 200) {
+                $success = 'User updated successfully.';
+                $action = 'list';
+            } else {
+                $error = handleApiError($response) ?: 'Failed to update user.';
+            }
+        } elseif ($action === 'update_role' && isset($_POST['user_id'])) {
+            // Update user role only
             $userId = $_POST['user_id'];
             $newRole = $_POST['role'];
             
-            // Debug: Log edit role request
-            error_log("Edit role request - User ID: $userId, New Role: $newRole");
-            error_log("Edit role URL: " . USER_SERVICE_URL . '/' . $userId . '/role');
-            
             $response = makeApiCall(USER_SERVICE_URL . '/' . $userId . '/role', 'PATCH', 
-                                   ['role' => $newRole], $_SESSION['token']);
-            
-            // Debug: Log response
-            error_log("Edit role response: " . json_encode($response));
+                                   ['role' => $newRole], $token);
             
             if ($response['status_code'] === 200) {
-                header('Location: users.php?success=User role updated successfully');
-                exit();
+                $success = 'User role updated successfully.';
+                $action = 'list';
             } else {
-                $error = 'Failed to update role: ' . ($response['data']['error'] ?? 'Unknown error') . ' (Status: ' . $response['status_code'] . ')';
-            }
-        } elseif ($submittedAction === 'deactivate') {
-            $userId = $_POST['user_id'];
-            
-            $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'DELETE', null, $_SESSION['token']);
-            
-            if ($response['status_code'] === 204) {
-                header('Location: users.php?success=User deactivated successfully');
-                exit();
-            } else {
-                $error = 'Failed to deactivate user: ' . ($response['data']['error'] ?? 'Unknown error');
+                $error = handleApiError($response) ?: 'Failed to update user role.';
             }
         }
+    }
+}
+
+// Handle delete action
+if ($action === 'delete' && isset($_GET['id'])) {
+    $token = $_SESSION['token'];
+    $userId = $_GET['id'];
+    
+    $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'DELETE', null, $token);
+    
+    if ($response['status_code'] === 200 || $response['status_code'] === 204) {
+        $success = 'User deleted successfully.';
     } else {
-        $error = 'Invalid CSRF token';
+        $error = handleApiError($response) ?: 'Failed to delete user.';
     }
+    $action = 'list';
 }
 
-// Get users list
-$token = $_SESSION['token'];
-
-// Debug: Check if token exists
-if (!$token) {
-    $error = 'No authentication token found. Please login again.';
-    header('Location: login.php');
-    exit();
-}
-
-$response = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
-$users = $response['status_code'] === 200 ? $response['data'] : [];
-
-// Success message
-$success = $_GET['success'] ?? '';
-$userId = $_GET['id'] ?? null;
-
-// Handle view action
-if ($action === 'view' && $userId) {
-    // Call user-service API to get user by ID
-    $apiUrl = USER_SERVICE_URL . '/' . $userId;
-    echo "<!-- DEBUG: API URL: $apiUrl -->";
-    echo "<!-- DEBUG: Token exists: " . (isset($_SESSION['token']) ? 'YES' : 'NO') . " -->";
+// Fetch data based on action
+try {
+    $token = $_SESSION['token'];
     
-    $userResponse = makeApiCall($apiUrl, 'GET', null, $token);
-    
-    // Debug: Add logging
-    error_log("View user API call: " . $apiUrl);
-    error_log("View user response: " . json_encode($userResponse));
-    
-    // Show debug info on page
-    if (isset($_GET['debug'])) {
-        echo "<pre>Debug Info:\n";
-        echo "API URL: $apiUrl\n";
-        echo "Token: " . substr($token, 0, 20) . "...\n";
-        echo "Response: " . json_encode($userResponse, JSON_PRETTY_PRINT);
-        echo "</pre>";
-    }
-    
-    if ($userResponse['status_code'] === 200) {
-        $selectedUser = $userResponse['data'];
-    } else {
-        $error = 'User not found. API Response: ' . json_encode($userResponse);
-    }
-}
-
-// Set page content based on action
-if ($action === 'view' && isset($selectedUser)) {
-    $pageContent = '
-    <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">User Details</h1>
-            <a href="users.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Users
-            </a>
-        </div>
-
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="bi bi-person"></i> User Information
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>User ID:</strong> ' . htmlspecialchars($selectedUser['id']) . '</p>
-                        <p><strong>Email:</strong> ' . htmlspecialchars($selectedUser['email']) . '</p>
-                        <p><strong>Role:</strong> <span class="badge bg-primary">' . htmlspecialchars($selectedUser['role']) . '</span></p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Created:</strong> ' . date('M d, Y H:i', strtotime($selectedUser['createdAt'])) . '</p>
-                        <p><strong>Last Updated:</strong> ' . date('M d, Y H:i', strtotime($selectedUser['updatedAt'])) . '</p>
-                    </div>
-                </div>
+    if ($action === 'list') {
+        // Build query parameters for users
+        $queryParams = [
+            'page' => $page,
+            'limit' => $limit
+        ];
+        if ($search) {
+            $queryParams['search'] = $search;
+        }
+        if ($roleFilter) {
+            $queryParams['role'] = $roleFilter;
+        }
+        $queryString = http_build_query($queryParams);
+        
+        $response = makeApiCall(USER_SERVICE_URL . '?' . $queryString, 'GET', null, $token);
+        
+        if ($response['status_code'] === 200) {
+            // Handle paginated response
+            if (isset($response['data']['users']) && isset($response['data']['total'])) {
+                $users = $response['data']['users'];
+                $totalUsers = $response['data']['total'];
+            } else {
+                // Fallback for non-paginated response
+                $users = is_array($response['data']) ? $response['data'] : [];
                 
-                <div class="mt-4">
-                    <button class="btn btn-warning me-2" onclick="editRole(\'' . $selectedUser['id'] . '\', \'' . $selectedUser['role'] . '\')">
-                        <i class="bi bi-pencil"></i> Edit Role
+                // Apply client-side filtering if API doesn't support it
+                if ($search || $roleFilter) {
+                    $users = array_filter($users, function($userItem) use ($search, $roleFilter) {
+                        $matchesSearch = true;
+                        $matchesRole = true;
+                        
+                        if ($search) {
+                            $searchLower = strtolower($search);
+                            $matchesSearch = stripos($userItem['email'] ?? '', $search) !== false ||
+                                           stripos($userItem['fullName'] ?? '', $search) !== false ||
+                                           stripos($userItem['role'] ?? '', $search) !== false;
+                        }
+                        
+                        if ($roleFilter) {
+                            $matchesRole = ($userItem['role'] ?? '') === $roleFilter;
+                        }
+                        
+                        return $matchesSearch && $matchesRole;
+                    });
+                }
+                
+                $totalUsers = count($users);
+                $users = array_slice($users, $offset, $limit);
+            }
+            
+            $totalPages = ceil($totalUsers / $limit);
+            
+            // Generate pagination
+            if ($totalPages > 1) {
+                $baseUrl = 'users.php?';
+                if ($search) $baseUrl .= 'search=' . urlencode($search) . '&';
+                if ($roleFilter) $baseUrl .= 'role=' . urlencode($roleFilter) . '&';
+                $pagination = paginate($page, $totalPages, $baseUrl);
+            }
+        } else {
+            $error = handleApiError($response) ?: 'Failed to load users.';
+        }
+    } elseif (($action === 'edit' || $action === 'view') && isset($_GET['id'])) {
+        $userId = $_GET['id'];
+        $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'GET', null, $token);
+        if ($response['status_code'] === 200) {
+            $selectedUser = $response['data'];
+        } else {
+            $error = handleApiError($response) ?: 'User not found.';
+        }
+    }
+    
+} catch (Exception $e) {
+    $error = 'System error: ' . $e->getMessage();
+}
+
+// Start output buffering for page content
+ob_start();
+?>
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-people"></i>
+            User Management
+        </h1>
+        <p class="text-muted mb-0">Manage system users and their roles</p>
+    </div>
+    
+    <?php if ($action === 'list'): ?>
+    <div>
+        <a href="users.php?action=add" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i>
+            Add User
+        </a>
+    </div>
+    <?php endif; ?>
+</div>
+
+<?php if ($error): ?>
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <?php echo $error; ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($success): ?>
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle"></i>
+        <?php echo $success; ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($action === 'list'): ?>
+<!-- Users List -->
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h5 class="mb-0">
+                    <i class="bi bi-list"></i>
+                    Users List
+                    <?php if (isset($totalUsers) && $totalUsers > 0): ?>
+                    <span class="badge bg-primary ms-2"><?php echo $totalUsers; ?></span>
+                    <?php endif; ?>
+                </h5>
+            </div>
+            <div class="col-md-6">
+                <!-- Search and Filter Form -->
+                <form method="GET" class="d-flex gap-2">
+                    <input type="text" 
+                           class="form-control form-control-sm" 
+                           name="search" 
+                           placeholder="Search users..." 
+                           value="<?php echo htmlspecialchars($search); ?>">
+                    <select class="form-select form-select-sm" name="role" style="width: auto;">
+                        <option value="">All Roles</option>
+                        <option value="ADMIN" <?php echo $roleFilter === 'ADMIN' ? 'selected' : ''; ?>>Admin</option>
+                        <option value="DOCTOR" <?php echo $roleFilter === 'DOCTOR' ? 'selected' : ''; ?>>Doctor</option>
+                        <option value="NURSE" <?php echo $roleFilter === 'NURSE' ? 'selected' : ''; ?>>Nurse</option>
+                        <option value="RECEPTIONIST" <?php echo $roleFilter === 'RECEPTIONIST' ? 'selected' : ''; ?>>Receptionist</option>
+                    </select>
+                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-search"></i>
                     </button>
-                    <button class="btn btn-info me-2" onclick="resetPassword(\'' . $selectedUser['id'] . '\')">
-                        <i class="bi bi-key"></i> Reset Password
-                    </button>
-                    <button class="btn btn-danger" onclick="deactivateUser(\'' . $selectedUser['id'] . '\', \'' . $selectedUser['email'] . '\')">
-                        <i class="bi bi-person-x"></i> Deactivate User
-                    </button>
-                </div>
+                    <?php if ($search || $roleFilter): ?>
+                    <a href="users.php" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x"></i>
+                    </a>
+                    <?php endif; ?>
+                </form>
             </div>
         </div>
-    </div>';
-} elseif ($action === 'add') {
-    $pageContent = '
-    <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">Add New User</h1>
-            <a href="users.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Users
-            </a>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="border-0">
+                            <i class="bi bi-hash me-1"></i>ID
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-person me-1"></i>User
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-envelope me-1"></i>Email
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-shield me-1"></i>Role
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-telephone me-1"></i>Phone
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-circle me-1"></i>Status
+                        </th>
+                        <th class="border-0">
+                            <i class="bi bi-calendar-event me-1"></i>Created
+                        </th>
+                        <th class="border-0 text-center">
+                            <i class="bi bi-gear me-1"></i>Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($users)): ?>
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-2 mb-0">No users found</p>
+                            <?php if ($search || $roleFilter): ?>
+                            <small class="text-muted">Try adjusting your search criteria</small>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php else: ?>
+                    <?php foreach ($users as $userItem): ?>
+                    <?php
+                    // Format date
+                    $createdDate = isset($userItem['createdAt']) ? date('M j, Y', strtotime($userItem['createdAt'])) : 'N/A';
+                    
+                    // Status and role styling
+                    $statusClass = getUserStatusClass($userItem['isActive'] ?? true);
+                    $roleClass = getRoleClass($userItem['role'] ?? '');
+                    $displayName = getDisplayName($userItem);
+                    $avatar = getUserAvatar($displayName, $userItem['email'] ?? '');
+                    $phoneNumber = getPhoneNumber($userItem);
+                    
+                    // Role color for avatar
+                    $avatarBg = 'bg-primary';
+                    switch(strtoupper($userItem['role'] ?? '')) {
+                        case 'ADMIN': $avatarBg = 'bg-danger'; break;
+                        case 'DOCTOR': $avatarBg = 'bg-primary'; break;
+                        case 'NURSE': $avatarBg = 'bg-info'; break;
+                        case 'RECEPTIONIST': $avatarBg = 'bg-warning'; break;
+                    }
+                    ?>
+                    <tr>
+                        <td class="align-middle">
+                            <span class="text-monospace small"><?php echo htmlspecialchars(substr($userItem['id'] ?? 'N/A', 0, 8)); ?>...</span>
+                        </td>
+                        <td class="align-middle">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm <?php echo $avatarBg; ?> text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                                    <?php echo $avatar; ?>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">
+                                        <?php echo htmlspecialchars($displayName); ?>
+                                    </div>
+                                    <small class="text-muted">ID: <?php echo htmlspecialchars(substr($userItem['id'] ?? 'N/A', 0, 8)); ?>...</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="align-middle">
+                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($userItem['email'] ?? 'N/A'); ?></div>
+                            <?php if ($userItem['email'] === getCurrentUser()['email']): ?>
+                            <small class="text-primary">(You)</small>
+                            <?php endif; ?>
+                        </td>
+                        <td class="align-middle">
+                            <span class="<?php echo $roleClass; ?>"><?php echo htmlspecialchars($userItem['role'] ?? 'Unknown'); ?></span>
+                        </td>
+                        <td class="align-middle">
+                            <?php if ($phoneNumber): ?>
+                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($phoneNumber); ?></div>
+                            <?php else: ?>
+                            <small class="text-muted">Not provided</small>
+                            <?php endif; ?>
+                        </td>
+                        <td class="align-middle">
+                            <span class="<?php echo $statusClass; ?>">
+                                <?php echo ($userItem['isActive'] ?? true) ? 'Active' : 'Inactive'; ?>
+                            </span>
+                        </td>
+                        <td class="align-middle">
+                            <div class="fw-bold text-dark"><?php echo $createdDate; ?></div>
+                            <small class="text-muted"><?php echo isset($userItem['createdAt']) ? date('H:i', strtotime($userItem['createdAt'])) : ''; ?></small>
+                        </td>
+                        <td class="align-middle text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="users.php?action=view&id=<?php echo $userItem['id']; ?>" 
+                                   class="btn btn-outline-primary btn-sm" 
+                                   title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="users.php?action=edit&id=<?php echo $userItem['id']; ?>" 
+                                   class="btn btn-outline-warning btn-sm" 
+                                   title="Edit User">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-outline-info btn-sm" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#roleModal"
+                                        data-user-id="<?php echo $userItem['id']; ?>"
+                                        data-current-role="<?php echo $userItem['role'] ?? ''; ?>"
+                                        data-user-name="<?php echo htmlspecialchars($userItem['fullName'] ?? $userItem['email'] ?? 'Unknown'); ?>"
+                                        title="Change Role">
+                                    <i class="bi bi-shield"></i>
+                                </button>
+                                <?php if ($userItem['email'] !== getCurrentUser()['email']): ?>
+                                <button type="button" 
+                                        class="btn btn-outline-danger btn-sm" 
+                                        onclick="confirmDelete('<?php echo $userItem['id']; ?>', '<?php echo htmlspecialchars($userItem['fullName'] ?? $userItem['email'] ?? 'Unknown'); ?>')" 
+                                        title="Delete User">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
+    </div>
+    
+    <!-- Pagination -->
+    <?php if ($pagination): ?>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="text-muted">
+            Showing <?php echo (($page - 1) * $limit + 1); ?> to <?php echo min($page * $limit, $totalUsers ?? 0); ?> of <?php echo $totalUsers ?? 0; ?> users
+        </div>
+        <nav>
+            <?php echo $pagination; ?>
+        </nav>
+    </div>
+    <?php endif; ?>
+</div>
 
-        ' . (isset($error) ? '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' . htmlspecialchars($error) . '</div>' : '') . '
-
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="bi bi-person-plus"></i> Create New User Account
-                </h6>
+<?php elseif ($action === 'add' || ($action === 'edit' && $selectedUser)): ?>
+<!-- Add/Edit User Form -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-<?php echo $action === 'add' ? 'person-plus' : 'pencil'; ?>"></i>
+                    <?php echo $action === 'add' ? 'Add New User' : 'Edit User'; ?>
+                </h5>
             </div>
+            
             <div class="card-body">
-                <form method="POST" action="users.php?action=add">
-                    <input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo getCsrfToken(); ?>">
+                    <?php if ($action === 'edit'): ?>
+                    <input type="hidden" name="id" value="<?php echo $selectedUser['id']; ?>">
+                    <?php endif; ?>
                     
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email Address <span class="text-danger">*</span></label>
-                                <input type="email" class="form-control" id="email" name="email" placeholder="user@hospital.com" required>
-                            </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="fullName" class="form-label">Full Name</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="fullName" 
+                                   name="fullName" 
+                                   value="<?php echo $action === 'edit' ? htmlspecialchars($selectedUser['fullName'] ?? '') : ''; ?>"
+                                   placeholder="Enter full name">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="role" class="form-label">Role <span class="text-danger">*</span></label>
-                                <select class="form-select" id="role" name="role" required>
-                                    <option value="">Choose user role...</option>
-                                    <option value="ADMIN">👑 Administrator</option>
-                                    <option value="DOCTOR">👨‍⚕️ Doctor</option>
-                                    <option value="NURSE">👩‍⚕️ Nurse</option>
-                                    <option value="RECEPTIONIST">📋 Receptionist</option>
-                                </select>
-                            </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" 
+                                   class="form-control" 
+                                   id="email" 
+                                   name="email" 
+                                   value="<?php echo $action === 'edit' ? htmlspecialchars($selectedUser['email'] ?? '') : ''; ?>"
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">
+                                Password <?php echo $action === 'add' ? '*' : '(leave blank to keep current)'; ?>
+                            </label>
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="password" 
+                                   name="password" 
+                                   <?php echo $action === 'add' ? 'required' : ''; ?>>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="role" class="form-label">Role *</label>
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="">Select a role...</option>
+                                <option value="ADMIN" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'ADMIN') ? 'selected' : ''; ?>>Admin</option>
+                                <option value="DOCTOR" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'DOCTOR') ? 'selected' : ''; ?>>Doctor</option>
+                                <option value="NURSE" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'NURSE') ? 'selected' : ''; ?>>Nurse</option>
+                                <option value="RECEPTIONIST" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'RECEPTIONIST') ? 'selected' : ''; ?>>Receptionist</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="phoneNumber" class="form-label">Phone Number</label>
+                            <input type="tel" 
+                                   class="form-control" 
+                                   id="phoneNumber" 
+                                   name="phoneNumber" 
+                                   value="<?php echo $action === 'edit' ? htmlspecialchars($selectedUser['phoneNumber'] ?? '') : ''; ?>"
+                                   placeholder="Enter phone number">
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <textarea class="form-control" 
+                                      id="address" 
+                                      name="address" 
+                                      rows="3" 
+                                      placeholder="Enter address..."><?php echo $action === 'edit' ? htmlspecialchars($selectedUser['address'] ?? '') : ''; ?></textarea>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
-                        <input type="password" class="form-control" id="password" name="password" minlength="6" required>
-                        <small class="form-text text-muted">Minimum 6 characters</small>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-person-plus"></i> Create User
-                        </button>
-                        <a href="users.php" class="btn btn-secondary">
-                            <i class="bi bi-x-circle"></i> Cancel
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="users.php" class="btn btn-outline-secondary">
+                            <i class="bi bi-x"></i> Cancel
                         </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check"></i> <?php echo $action === 'add' ? 'Create User' : 'Update User'; ?>
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
-    </div>';
-} else {
-    // List view
-    $pageContent = '
-    <div class="container-fluid">
-        ' . (!empty($success) ? '<div class="alert alert-success"><i class="bi bi-check-circle"></i> ' . htmlspecialchars($success) . '</div>' : '') . '
-        
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 text-gray-800">User Management</h1>
-            <a href="users.php?action=add" class="btn btn-primary">
-                <i class="bi bi-plus"></i> Add User
-            </a>
-        </div>
+    </div>
+</div>
 
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="bi bi-people"></i> System Users
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>ID</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Created Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
-
-    if (empty($users)) {
-        $pageContent .= '<tr><td colspan="5" class="text-center text-muted">No users found.</td></tr>';
-    } else {
-        foreach ($users as $u) {
-            $roleClass = 'bg-primary';
-            switch($u['role']) {
-                case 'ADMIN': $roleClass = 'bg-danger'; break;
-                case 'DOCTOR': $roleClass = 'bg-success'; break;
-                case 'NURSE': $roleClass = 'bg-info'; break;
-                case 'RECEPTIONIST': $roleClass = 'bg-warning text-dark'; break;
-            }
-            
-            $pageContent .= '<tr>
-                <td>' . htmlspecialchars($u['id']) . '</td>
-                <td>' . htmlspecialchars($u['email']) . '</td>
-                <td><span class="badge ' . $roleClass . '">' . htmlspecialchars($u['role']) . '</span></td>
-                <td>' . date('M d, Y', strtotime($u['createdAt'])) . '</td>
-                <td>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" title="View Details" onclick="viewUser(\'' . $u['id'] . '\')">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        <button class="btn btn-outline-warning" title="Edit Role" onclick="editRole(\'' . $u['id'] . '\', \'' . $u['role'] . '\')">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-outline-info" title="Reset Password" onclick="resetPassword(\'' . $u['id'] . '\')">
-                            <i class="bi bi-key"></i>
-                        </button>
-                        <button class="btn btn-outline-danger" title="Deactivate" onclick="deactivateUser(\'' . $u['id'] . '\', \'' . $u['email'] . '\')">
-                            <i class="bi bi-person-x"></i>
-                        </button>
+<?php elseif ($action === 'view' && $selectedUser): ?>
+<!-- View User Details -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person"></i>
+                        User Details
+                    </h5>
+                    <div>
+                        <a href="users.php?action=edit&id=<?php echo $selectedUser['id']; ?>" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a href="users.php" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
                     </div>
-                </td>
-            </tr>';
-        }
-    }
-
-    $pageContent .= '
-                        </tbody>
-                    </table>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">User ID</label>
+                        <p class="fw-bold text-monospace"><?php echo htmlspecialchars($selectedUser['id']); ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Status</label>
+                        <p><span class="<?php echo getUserStatusClass($selectedUser['isActive'] ?? true); ?>"><?php echo ($selectedUser['isActive'] ?? true) ? 'Active' : 'Inactive'; ?></span></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Full Name</label>
+                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['fullName'] ?? 'Not provided'); ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Email Address</label>
+                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['email'] ?? 'N/A'); ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Role</label>
+                        <p><span class="<?php echo getRoleClass($selectedUser['role'] ?? ''); ?>"><?php echo htmlspecialchars($selectedUser['role'] ?? 'Unknown'); ?></span></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Phone Number</label>
+                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['phoneNumber'] ?? 'Not provided'); ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Created Date</label>
+                        <p class="fw-bold"><?php echo isset($selectedUser['createdAt']) ? date('l, F j, Y \a\t H:i', strtotime($selectedUser['createdAt'])) : 'N/A'; ?></p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Last Updated</label>
+                        <p class="fw-bold"><?php echo isset($selectedUser['updatedAt']) ? date('l, F j, Y \a\t H:i', strtotime($selectedUser['updatedAt'])) : 'N/A'; ?></p>
+                    </div>
+                    
+                    <?php if ($selectedUser['address'] ?? false): ?>
+                    <div class="col-12 mb-3">
+                        <label class="form-label text-muted">Address</label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <p class="mb-0"><?php echo nl2br(htmlspecialchars($selectedUser['address'])); ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button type="button" 
+                            class="btn btn-warning" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#roleModal"
+                            data-user-id="<?php echo $selectedUser['id']; ?>"
+                            data-current-role="<?php echo $selectedUser['role'] ?? ''; ?>"
+                            data-user-name="<?php echo htmlspecialchars($selectedUser['fullName'] ?? $selectedUser['email'] ?? 'Unknown'); ?>">
+                        <i class="bi bi-shield"></i> Change Role
+                    </button>
+                    <a href="users.php?action=edit&id=<?php echo $selectedUser['id']; ?>" class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> Edit User
+                    </a>
                 </div>
             </div>
         </div>
-    </div>';
-}
+    </div>
+</div>
 
-// Add modals and JavaScript for user actions
-$pageContent .= '
-<!-- Edit Role Modal -->
-<div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">
+<?php elseif ($action === 'view' && !$selectedUser): ?>
+<!-- User Not Found -->
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-person-x text-muted" style="font-size: 4rem;"></i>
+                <h3 class="mt-3 text-muted">User Not Found</h3>
+                <p class="text-muted">The user you're looking for could not be found.</p>
+                <a href="users.php" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Users List
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<!-- Role Update Modal -->
+<div class="modal fade" id="roleModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editRoleModalLabel">Edit User Role</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="editRoleForm">
+            <form method="POST" action="users.php?action=update_role">
+                <div class="modal-header">
+                    <h5 class="modal-title">Change User Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
                 <div class="modal-body">
-                    <input type="hidden" id="editUserId" name="user_id">
-                    <input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">
+                    <input type="hidden" name="csrf_token" value="<?php echo getCsrfToken(); ?>">
+                    <input type="hidden" name="user_id" id="modalUserId">
+                    
+                    <p>Change role for <strong id="modalUserName"></strong>:</p>
                     
                     <div class="mb-3">
-                        <label for="newRole" class="form-label">New Role</label>
-                        <select class="form-select" id="newRole" name="role" required>
-                            <option value="">Select Role</option>
-                            <option value="ADMIN">👑 Administrator</option>
-                            <option value="DOCTOR">👨‍⚕️ Doctor</option>
-                            <option value="NURSE">👩‍⚕️ Nurse</option>
-                            <option value="RECEPTIONIST">📋 Receptionist</option>
+                        <label for="modalRole" class="form-label">New Role</label>
+                        <select class="form-select" id="modalRole" name="role" required>
+                            <option value="ADMIN">Admin</option>
+                            <option value="DOCTOR">Doctor</option>
+                            <option value="NURSE">Nurse</option>
+                            <option value="RECEPTIONIST">Receptionist</option>
                         </select>
                     </div>
                 </div>
@@ -335,105 +723,58 @@ $pageContent .= '
     </div>
 </div>
 
-<!-- Deactivate Confirmation Modal -->
-<div class="modal fade" id="deactivateModal" tabindex="-1" aria-labelledby="deactivateModalLabel" aria-hidden="true">
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="deactivateModalLabel">Deactivate User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to deactivate user <strong id="deactivateUserEmail"></strong>?</p>
-                <p class="text-warning">This action cannot be undone and the user will lose access to the system.</p>
+                <p>Are you sure you want to delete user <strong id="deleteUserName"></strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone.</small></p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirmDeactivate">Deactivate User</button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete User</a>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// User action functions
-function viewUser(userId) {
-    window.location.href = "users.php?action=view&id=" + userId;
-}
-
-function editRole(userId, currentRole) {
-    document.getElementById("editUserId").value = userId;
-    document.getElementById("newRole").value = currentRole;
-    
-    var modal = new bootstrap.Modal(document.getElementById("editRoleModal"));
-    modal.show();
-}
-
-function resetPassword(userId) {
-    alert("Reset Password feature is currently under development. Please contact system administrator to reset user passwords manually.");
-}
-
-function deactivateUser(userId, userEmail) {
-    document.getElementById("deactivateUserEmail").textContent = userEmail;
-    
-    var modal = new bootstrap.Modal(document.getElementById("deactivateModal"));
-    modal.show();
-    
-    // Set up confirmation button
-    document.getElementById("confirmDeactivate").onclick = function() {
-        // Create form and submit
-        var form = document.createElement("form");
-        form.method = "POST";
-        form.action = "users.php";
-        
-        var actionInput = document.createElement("input");
-        actionInput.type = "hidden";
-        actionInput.name = "action";
-        actionInput.value = "deactivate";
-        form.appendChild(actionInput);
-        
-        var userIdInput = document.createElement("input");
-        userIdInput.type = "hidden";
-        userIdInput.name = "user_id";
-        userIdInput.value = userId;
-        form.appendChild(userIdInput);
-        
-        var csrfInput = document.createElement("input");
-        csrfInput.type = "hidden";
-        csrfInput.name = "csrf_token";
-        csrfInput.value = "' . $_SESSION['csrf_token'] . '";
-        form.appendChild(csrfInput);
-        
-        document.body.appendChild(form);
-        form.submit();
-    };
-}
-
-// Handle edit role form submission
-document.getElementById("editRoleForm").addEventListener("submit", function(e) {
-    e.preventDefault();
-    
-    var formData = new FormData(this);
-    formData.append("action", "edit_role");
-    
-    // Create form and submit
-    var form = document.createElement("form");
-    form.method = "POST";
-    form.action = "users.php";
-    
-    for (var pair of formData.entries()) {
-        var input = document.createElement("input");
-        input.type = "hidden";
-        input.name = pair[0];
-        input.value = pair[1];
-        form.appendChild(input);
+// Role modal functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const roleModal = document.getElementById('roleModal');
+    if (roleModal) {
+        roleModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const userId = button.getAttribute('data-user-id');
+            const currentRole = button.getAttribute('data-current-role');
+            const userName = button.getAttribute('data-user-name');
+            
+            document.getElementById('modalUserId').value = userId;
+            document.getElementById('modalRole').value = currentRole;
+            document.getElementById('modalUserName').textContent = userName;
+        });
     }
     
-    document.body.appendChild(form);
-    form.submit();
+    // Auto-focus first input
+    const firstInput = document.querySelector('form input:not([type="hidden"]), form select');
+    if (firstInput) {
+        firstInput.focus();
+    }
 });
-</script>';
 
-// Include layout
+function confirmDelete(userId, userName) {
+    document.getElementById('deleteUserName').textContent = userName;
+    document.getElementById('confirmDeleteBtn').href = 'users.php?action=delete&id=' + userId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+
+<?php
+$pageContent = ob_get_clean();
 include 'includes/layout.php';
 ?>
