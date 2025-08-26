@@ -247,7 +247,7 @@ try {
     }
 
     // For list view, get basic patient and user data for display
-    if ($action === 'list' && !empty($prescriptions)) {
+    if (($action === 'list' && !empty($prescriptions)) || ($action === 'view' && isset($prescription))) {
         $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
         if ($patientsResponse['status_code'] === 200) {
             $patients = isset($patientsResponse['data']['patients']) ?
@@ -770,10 +770,11 @@ ob_start();
                     <div class="mb-3">
                         <label for="modalStatus" class="form-label">New Status</label>
                         <select class="form-select" id="modalStatus" name="status" required>
+                            <option value="ISSUED">Issued</option>
                             <option value="PENDING">Pending</option>
                             <option value="DISPENSED">Dispensed</option>
                             <option value="COMPLETED">Completed</option>
-                            <option value="CANCELLED">Cancelled</option>
+                            <option value="CANCELED">Canceled</option>
                         </select>
                     </div>
                 </div>
@@ -817,7 +818,11 @@ ob_start();
                 const currentStatus = button.getAttribute('data-current-status');
 
                 document.getElementById('modalPrescriptionId').value = prescriptionId;
-                document.getElementById('modalStatus').value = currentStatus;
+                // Chọn đúng option status, kể cả khi value không khớp do chữ hoa/thường
+                const statusSelect = document.getElementById('modalStatus');
+                Array.from(statusSelect.options).forEach(opt => {
+                    opt.selected = (opt.value.toUpperCase() === (currentStatus || '').toUpperCase());
+                });
             });
         }
 

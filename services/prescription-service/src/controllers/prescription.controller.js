@@ -3,10 +3,12 @@ const prisma = new PrismaClient();
 const { publishEvent } = require('../lib/broker');
 
 const EXCHANGE = 'prescription.events';
-const VALID_STATUS = ['ISSUED', 'FILLED', 'CANCELED'];
+const VALID_STATUS = ['ISSUED', 'PENDING', 'DISPENSED', 'COMPLETED', 'CANCELED'];
 const TRANSITIONS = {
-    ISSUED: ['FILLED', 'CANCELED'],
-    FILLED: [],
+    ISSUED: ['PENDING', 'DISPENSED', 'COMPLETED', 'CANCELED'],
+    PENDING: ['DISPENSED', 'COMPLETED', 'CANCELED'],
+    DISPENSED: ['COMPLETED', 'CANCELED'],
+    COMPLETED: [],
     CANCELED: []
 };
 

@@ -7,13 +7,21 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+enum PrescriptionStatus {
+    ISSUED
+    PENDING
+    DISPENSED
+    COMPLETED
+    CANCELED
+}
+
 model Prescription {
     id            String             @id @default(cuid())
     patientId     String
     doctorId      String
     appointmentId String?
     note          String?
-    status        String             @default("ISSUED") // ISSUED | CANCELED | FILLED
+    status        PrescriptionStatus @default(ISSUED)
     createdAt     DateTime           @default(now())
     updatedAt     DateTime           @updatedAt
     items         PrescriptionItem[]
