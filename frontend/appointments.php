@@ -92,22 +92,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = handleApiError($response) ?: 'Failed to create appointment.';
             }
         } elseif ($action === 'edit' && isset($_POST['id'])) {
-            // Update appointment
+            // Update appointment info
             $appointmentId = $_POST['id'];
             $appointmentData = [
                 'patientId' => sanitize($_POST['patientId']),
                 'doctorId' => sanitize($_POST['doctorId']),
                 'startTime' => $_POST['startTime'],
                 'endTime' => $_POST['endTime'],
-                'reason' => sanitize($_POST['reason']),
-                'status' => sanitize($_POST['status'])
+                'reason' => sanitize($_POST['reason'])
             ];
-            
             $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'PUT', $appointmentData, $token);
-            
             if ($response['status_code'] === 200) {
-                $success = 'Appointment updated successfully.';
-                $action = 'list';
+                // Luôn gọi PATCH đổi status nếu có trường status
+                if (isset($_POST['status'])) {
+                    $statusData = ['status' => sanitize($_POST['status'])];
+                    $statusResponse = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId . '/status', 'PATCH', $statusData, $token);
+                    if ($statusResponse['status_code'] === 200) {
+                        $success = 'Appointment updated successfully.';
+                        $action = 'list';
+                    } else {
+                        $error = handleApiError($statusResponse) ?: 'Failed to update appointment status.';
+                    }
+                } else {
+                    $success = 'Appointment updated successfully.';
+                    $action = 'list';
+                }
             } else {
                 $error = handleApiError($response) ?: 'Failed to update appointment.';
             }

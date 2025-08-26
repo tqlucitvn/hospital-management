@@ -28,12 +28,13 @@ exports.create = async (req, res, next) => {
         if (!start || !end) return res.status(400).json({ error: 'Invalid datetime format' });
         if (end <= start) return res.status(400).json({ error: 'Invalid time range' });
 
-        // Check overlap for same doctor
+        // Check overlap for same doctor, chỉ với các lịch chưa hoàn thành/hủy
         const overlap = await prisma.appointment.findFirst({
             where: {
                 doctorId,
                 startTime: { lt: end },
-                endTime: { gt: start }
+                endTime: { gt: start },
+                status: { in: ['SCHEDULED', 'CONFIRMED'] }
             }
         });
 
