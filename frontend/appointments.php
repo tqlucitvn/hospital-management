@@ -476,9 +476,11 @@ ob_start();
                             <label for="patientId" class="form-label">Patient *</label>
                             <select class="form-select" id="patientId" name="patientId" required>
                                 <option value="">Select a patient...</option>
-                                <?php foreach ($patients as $patient): ?>
+                                <?php 
+                                $preselectPatientId = $_GET['patient_id'] ?? ($action === 'edit' ? $appointment['patientId'] : '');
+                                foreach ($patients as $patient): ?>
                                 <option value="<?php echo $patient['id']; ?>" 
-                                        <?php echo ($action === 'edit' && $appointment['patientId'] == $patient['id']) ? 'selected' : ''; ?>>
+                                        <?php echo ($patient['id'] == $preselectPatientId) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($patient['fullName'] ?? 'Unknown'); ?>
                                 </option>
                                 <?php endforeach; ?>
