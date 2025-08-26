@@ -221,7 +221,7 @@ try {
     }
     
     // For list view, get basic patient and user data for display
-    if ($action === 'list' && !empty($appointments)) {
+    if (($action === 'list' && !empty($appointments)) || ($action === 'view' && isset($appointment))) {
         $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
         if ($patientsResponse['status_code'] === 200) {
             $patients = isset($patientsResponse['data']['patients']) ? 
