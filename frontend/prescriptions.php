@@ -503,8 +503,10 @@ ob_start();
                                 <label for="patientId" class="form-label">Patient *</label>
                                 <select class="form-select" id="patientId" name="patientId" required>
                                     <option value="">Select a patient...</option>
-                                    <?php foreach ($patients as $patient): ?>
-                                        <option value="<?php echo $patient['id']; ?>">
+                                    <?php 
+                                    $preselectPatientId = $_GET['patient_id'] ?? '';
+                                    foreach ($patients as $patient): ?>
+                                        <option value="<?php echo $patient['id']; ?>" <?php echo ($patient['id'] == $preselectPatientId) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($patient['fullName'] ?? 'Unknown'); ?>
                                         </option>
                                     <?php endforeach; ?>
