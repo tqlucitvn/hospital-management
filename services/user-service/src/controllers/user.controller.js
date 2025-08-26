@@ -65,13 +65,22 @@ exports.getUserById = async (req, res) => {
         const { id } = req.params;
         const user = await prisma.user.findUnique({
             where: { id },
-            select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                fullName: true,
+                phoneNumber: true,
+                address: true,
+                createdAt: true,
+                updatedAt: true
+            }
         });
-        
+
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
+
         res.json(user);
     } catch (e) {
         res.status(500).json({ error: 'Could not get user details' });
@@ -82,28 +91,28 @@ exports.updateUserRole = async (req, res) => {
     try {
         const { id } = req.params;
         const { role } = req.body;
-        
+
         console.log(`Update role request - ID: ${id}, Role: "${role}", Type: ${typeof role}`);
         console.log('Full request body:', req.body);
-        
+
         if (!role) {
             console.log('Missing role in request');
             return res.status(400).json({ error: 'Missing role' });
         }
-        
+
         // Validate role enum
         const validRoles = ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
         if (!validRoles.includes(role)) {
             console.log(`Invalid role: "${role}". Valid roles:`, validRoles);
             return res.status(400).json({ error: 'Invalid role. Must be one of: ' + validRoles.join(', ') });
         }
-        
+
         const updated = await prisma.user.update({
             where: { id },
             data: { role },
             select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
         });
-        
+
         console.log('Role updated successfully:', updated);
         res.json(updated);
     } catch (e) {
@@ -116,25 +125,52 @@ exports.updateUserRole = async (req, res) => {
     }
 };
 
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email, role, fullName, phoneNumber, address, password } = req.body;
+        const data = {};
+        if (email) data.email = email;
+        if (role) data.role = role;
+        if (fullName !== undefined) data.fullName = fullName;
+        if (phoneNumber !== undefined) data.phoneNumber = phoneNumber;
+        if (address !== undefined) data.address = address;
+        if (password) {
+            data.password = await bcrypt.hash(password, 10);
+        }
+        const updated = await prisma.user.update({
+            where: { id },
+            data,
+            select: { id: true, email: true, role: true, fullName: true, phoneNumber: true, address: true, createdAt: true, updatedAt: true }
+        });
+        res.json(updated);
+    } catch (e) {
+        if (e.code === 'P2025') {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.status(500).json({ error: 'Could not update user', details: e.message });
+    }
+};
+
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // Check if user exists
         const user = await prisma.user.findUnique({
             where: { id },
             select: { id: true, email: true }
         });
-        
+
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
+
         // Delete user
         await prisma.user.delete({
             where: { id }
         });
-        
+
         res.status(204).send();
     } catch (e) {
         if (e.code === 'P2025') {

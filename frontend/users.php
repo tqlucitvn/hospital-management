@@ -119,10 +119,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'PUT', $userData, $token);
-            
             if ($response['status_code'] === 200) {
-                $success = 'User updated successfully.';
-                $action = 'list';
+                // Chuyển về trang chi tiết user vừa sửa để hiển thị dữ liệu mới nhất
+                header('Location: users.php?action=view&id=' . urlencode($userId) . '&success=' . urlencode('User updated successfully.'));
+                exit();
             } else {
                 $error = handleApiError($response) ?: 'Failed to update user.';
             }

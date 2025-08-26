@@ -15,6 +15,7 @@ router.post('/login', userController.login);
 
 // Admin protected - specific routes first
 router.patch('/:id/role', auth(['ADMIN']), userController.updateUserRole);
+router.put('/:id', auth(['ADMIN']), userController.updateUser); // <-- add update user info
 router.get('/:id', auth(['ADMIN']), userController.getUserById);
 router.delete('/:id', auth(['ADMIN']), userController.deleteUser);
 router.get('/', auth(['ADMIN']), userController.listUsers);

@@ -209,14 +209,34 @@ try {
                         $patientsResponse['data']['patients'] : 
                         (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
         }
-        
+
+        $users = [];
         $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
         if ($usersResponse['status_code'] === 200) {
-            $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
-            // Filter doctors
-            $users = array_filter($users, function($user) {
+            // Support both ['users' => [...]] and direct array
+            if (isset($usersResponse['data']['users']) && is_array($usersResponse['data']['users'])) {
+                $usersRaw = $usersResponse['data']['users'];
+            } elseif (is_array($usersResponse['data'])) {
+                $usersRaw = $usersResponse['data'];
+            } else {
+                $usersRaw = [];
+            }
+            $users = array_values(array_filter($usersRaw, function($user) {
                 return isset($user['role']) && $user['role'] === 'DOCTOR';
-            });
+            }));
+        }
+        // Nếu là DOCTOR và không có user nào, thêm chính user hiện tại vào $users
+        if ($user['role'] === 'DOCTOR') {
+            $found = false;
+            foreach ($users as $u) {
+                if (isset($u['id']) && $u['id'] == $user['id']) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                $users[] = $user;
+            }
         }
     }
     
@@ -500,9 +520,11 @@ ob_start();
                             <label for="doctorId" class="form-label">Doctor *</label>
                             <select class="form-select" id="doctorId" name="doctorId" required>
                                 <option value="">Select a doctor...</option>
-                                <?php foreach ($users as $doctor): ?>
+                                <?php 
+                                $preselectDoctorId = $_GET['doctor_id'] ?? (($user['role'] === 'DOCTOR') ? $user['id'] : (($action === 'edit') ? $appointment['doctorId'] : ''));
+                                foreach ($users as $doctor): ?>
                                 <option value="<?php echo $doctor['id']; ?>" 
-                                        <?php echo ($action === 'edit' && $appointment['doctorId'] == $doctor['id']) ? 'selected' : ''; ?>>
+                                        <?php echo ($doctor['id'] == $preselectDoctorId) ? 'selected' : ''; ?> >
                                     Dr. <?php echo htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? 'Unknown'); ?>
                                 </option>
                                 <?php endforeach; ?>

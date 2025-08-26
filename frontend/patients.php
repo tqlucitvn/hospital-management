@@ -618,7 +618,7 @@ ob_start();
                     <div class="col-12">
                         <div class="d-flex gap-2 justify-content-end">
                             <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
-                            <a href="appointments.php?action=add&patient_id=<?php echo $patient['id']; ?>" class="btn btn-outline-success">
+                            <a href="appointments.php?action=add&patient_id=<?php echo $patient['id']; ?><?php echo ($user['role'] === 'DOCTOR') ? '&doctor_id=' . $user['id'] : ''; ?>" class="btn btn-outline-success">
                                 <i class="bi bi-calendar-plus"></i> Schedule Appointment
                             </a>
                             <?php endif; ?>
