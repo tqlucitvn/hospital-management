@@ -74,7 +74,12 @@ try {
     
     // Get appointment stats
     if (hasAnyRole(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'])) {
-        $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', null, $token);
+        $appointmentFilter = null;
+        // Nếu là Doctor, chỉ lấy appointment của chính mình
+        if (hasRole('DOCTOR') && isset($user['id'])) {
+            $appointmentFilter = ['doctorId' => $user['id']];
+        }
+        $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', $appointmentFilter, $token);
         
         if ($debugMode) {
             echo "<div class='alert alert-info'>Appointment API Response: " . json_encode($response) . "</div>";

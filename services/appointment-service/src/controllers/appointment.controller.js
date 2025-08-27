@@ -66,7 +66,12 @@ exports.create = async (req, res, next) => {
 
 exports.list = async (_req, res, next) => {
     try {
-        const rows = await prisma.appointment.findMany({ orderBy: { startTime: 'asc' } });
+        let where = {};
+        // Nếu user là Doctor, chỉ trả về appointment của chính mình
+        if (_req.user && _req.user.role === 'DOCTOR' && _req.user.id) {
+            where.doctorId = _req.user.id;
+        }
+        const rows = await prisma.appointment.findMany({ where, orderBy: { startTime: 'asc' } });
         res.json(rows);
     } catch (e) { next(e); }
 };
