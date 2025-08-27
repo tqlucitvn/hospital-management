@@ -7,17 +7,20 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 exports.register = async (req, res) => {
     try {
-        const { email, password, role } = req.body;
-        if (!email || !password || !role) {
-            return res.status(400).json({ error: 'Email, password, and role are required.' });
+        const { email, password, role, fullName } = req.body;
+        if (!email || !password || !role || !fullName) {
+            return res.status(400).json({ error: 'Email, password, role, and fullName are required.' });
         }
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
             return res.status(400).json({ error: 'Invalid email format' });
         if (password.length < 6)
             return res.status(400).json({ error: 'Password too short' });
+        if (fullName.trim().length < 2) {
+            return res.status(400).json({ error: 'Full name is too short.' });
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await prisma.user.create({
-            data: { email, password: hashedPassword, role },
+            data: { email, password: hashedPassword, role, fullName },
         });
         const { password: _, ...userWithoutPassword } = newUser;
         res.status(201).json(userWithoutPassword);
