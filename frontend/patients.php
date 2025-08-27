@@ -109,13 +109,38 @@ try {
             $queryParams['search'] = $search;
         }
         $queryString = http_build_query($queryParams);
-        
+
         $response = makeApiCall(PATIENT_SERVICE_URL . '?' . $queryString, 'GET', null, $token);
+        $allPatients = [];
         if ($response['status_code'] === 200) {
-            $patients = $response['data']['patients'] ?? [];
+            $allPatients = $response['data']['patients'] ?? [];
             $totalPatients = $response['data']['total'] ?? 0;
             $totalPages = ceil($totalPatients / $limit);
-            
+
+            // Nếu là Doctor, chỉ lấy bệnh nhân liên quan đến mình
+            if ($user['role'] === 'DOCTOR' && isset($user['id'])) {
+                // Lấy danh sách appointment của doctor
+                $apptResponse = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', ['doctorId' => $user['id']], $token);
+                $patientIds = [];
+                if ($apptResponse['status_code'] === 200 && is_array($apptResponse['data'])) {
+                    foreach ($apptResponse['data'] as $appt) {
+                        if (isset($appt['patientId'])) {
+                            $patientIds[$appt['patientId']] = true;
+                        }
+                    }
+                }
+                // Lọc bệnh nhân theo danh sách patientIds
+                $filteredPatients = array_filter($allPatients, function($p) use ($patientIds) {
+                    return isset($patientIds[$p['id']]);
+                });
+                $totalPatients = count($filteredPatients);
+                // Phân trang lại cho Doctor
+                $patients = array_slice(array_values($filteredPatients), $offset, $limit);
+                $totalPages = ceil($totalPatients / $limit);
+            } else {
+                $patients = $allPatients;
+            }
+
             // Generate pagination
             if ($totalPages > 1) {
                 $baseUrl = 'patients.php?';
