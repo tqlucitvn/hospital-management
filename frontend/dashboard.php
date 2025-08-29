@@ -27,27 +27,37 @@ try {
     
     // Get patient stats
     if (hasAnyRole(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'])) {
-        $response = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
-        
-        if ($debugMode) {
-            echo "<div class='alert alert-info'>Patient API Response: " . json_encode($response) . "</div>";
-        }
-        
-        if ($response['status_code'] === 200 && isset($response['data'])) {
-            // Handle new patient API response format {patients: [], total: ...}
-            if (isset($response['data']['patients']) && is_array($response['data']['patients'])) {
-                $patients = $response['data']['patients'];
-                $stats['patients']['total'] = $response['data']['total'] ?? count($patients);
-            } 
-            // Handle old format (direct array)
-            elseif (is_array($response['data'])) {
-                $patients = $response['data'];
-                $stats['patients']['total'] = count($patients);
-            } else {
-                $patients = [];
-                $stats['patients']['total'] = 0;
+        // Nếu là DOCTOR, chỉ lấy bệnh nhân liên quan đến các appointment của bác sĩ đó
+        if (hasRole('DOCTOR') && isset($user['id'])) {
+            // Lấy tất cả appointment của bác sĩ
+            $appointmentResponse = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', ['doctorId' => $user['id']], $token);
+            $patientIds = [];
+            if ($appointmentResponse['status_code'] === 200 && is_array($appointmentResponse['data'])) {
+                foreach ($appointmentResponse['data'] as $appt) {
+                    if (isset($appt['patientId'])) {
+                        $patientIds[$appt['patientId']] = true;
+                    }
+                }
             }
-            
+            // Lấy thông tin các bệnh nhân này
+            $patients = [];
+            if (!empty($patientIds)) {
+                $patientResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+                if ($patientResponse['status_code'] === 200 && isset($patientResponse['data']['patients']) && is_array($patientResponse['data']['patients'])) {
+                    foreach ($patientResponse['data']['patients'] as $patient) {
+                        if (isset($patient['id']) && isset($patientIds[$patient['id']])) {
+                            $patients[] = $patient;
+                        }
+                    }
+                } elseif ($patientResponse['status_code'] === 200 && is_array($patientResponse['data'])) {
+                    foreach ($patientResponse['data'] as $patient) {
+                        if (isset($patient['id']) && isset($patientIds[$patient['id']])) {
+                            $patients[] = $patient;
+                        }
+                    }
+                }
+            }
+            $stats['patients']['total'] = count($patients);
             // Count patients created today
             $today = date('Y-m-d');
             $todayCount = 0;
@@ -57,17 +67,49 @@ try {
                 }
             }
             $stats['patients']['today'] = $todayCount;
+        } else {
+            $response = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
             
-            // Get recent patients for activity feed
-            $recentPatients = array_slice(array_reverse($patients), 0, 5);
-            foreach ($recentPatients as $patient) {
-                $recentActivities[] = [
-                    'type' => 'patient',
-                    'message' => 'New patient registered: ' . ($patient['fullName'] ?? 'Unknown'),
-                    'time' => isset($patient['createdAt']) ? formatDate($patient['createdAt']) : 'Recently',
-                    'icon' => 'person-plus',
-                    'color' => 'success'
-                ];
+            if ($debugMode) {
+                echo "<div class='alert alert-info'>Patient API Response: " . json_encode($response) . "</div>";
+            }
+            
+            if ($response['status_code'] === 200 && isset($response['data'])) {
+                // Handle new patient API response format {patients: [], total: ...}
+                if (isset($response['data']['patients']) && is_array($response['data']['patients'])) {
+                    $patients = $response['data']['patients'];
+                    $stats['patients']['total'] = $response['data']['total'] ?? count($patients);
+                } 
+                // Handle old format (direct array)
+                elseif (is_array($response['data'])) {
+                    $patients = $response['data'];
+                    $stats['patients']['total'] = count($patients);
+                } else {
+                    $patients = [];
+                    $stats['patients']['total'] = 0;
+                }
+                
+                // Count patients created today
+                $today = date('Y-m-d');
+                $todayCount = 0;
+                foreach ($patients as $patient) {
+                    if (isset($patient['createdAt']) && strpos($patient['createdAt'], $today) === 0) {
+                        $todayCount++;
+                    }
+                }
+                $stats['patients']['today'] = $todayCount;
+                
+                // Get recent patients for activity feed
+                $recentPatients = array_slice(array_reverse($patients), 0, 5);
+                foreach ($recentPatients as $patient) {
+                    $recentActivities[] = [
+                        'type' => 'patient',
+                        'message' => 'New patient registered: ' . ($patient['fullName'] ?? 'Unknown'),
+                        'time' => isset($patient['createdAt']) ? formatDate($patient['createdAt']) : 'Recently',
+                        'icon' => 'person-plus',
+                        'color' => 'success'
+                    ];
+                }
             }
         }
     }
