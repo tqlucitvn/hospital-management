@@ -1,0 +1,1263 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[vietnamese]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage[T5]{fontenc}
+\usepackage{lmodern}
+
+% Định nghĩa ngôn ngữ cho listings
+\lstdefinelanguage{JavaScript}{%
+    keywords={break,case,catch,continue,debugger,default,delete,do,else,false,finally,for,function,if,in,instanceof,new,null,return,switch,this,throw,true,try,typeof,var,void,while,with},
+    keywordstyle=\color{blue}\bfseries,
+    ndkeywords={class,export,boolean,throw,implements,import,this},
+    ndkeywordstyle=\color{magenta}\bfseries,
+    identifierstyle=\color{black},
+    sensitive=false,
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{green}\ttfamily,
+    stringstyle=\color{red}\ttfamily,
+    morestring=[b]',
+    morestring=[b]",
+    morestring=[b]`
+}
+
+\lstdefinelanguage{bash}{%
+    keywords={echo,exit,cd,ls,cp,mv,rm,mkdir,cat,grep,find,chmod,chown,tar,zip,unzip,ssh,scp},
+    keywordstyle=\color{blue}\bfseries,
+    sensitive=true,
+    comment=[l]{\#},
+    commentstyle=\color{green}\ttfamily,
+    stringstyle=\color{red}\ttfamily,
+}
+
+% Định nghĩa ngôn ngữ text cho listings
+\lstdefinelanguage{text}{%
+    morestring=[b],
+    morecomment=[l]{\#},
+    commentstyle=\color{gray}\ttfamily,
+    stringstyle=\ttfamily,
+    keywordstyle=,
+}
+
+% Page setup
+\geometry{left=3cm,right=2cm,top=2.5cm,bottom=2.5cm}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyfoot[C]{\thepage}
+
+% Code listings setup
+\lstset{
+    language=JavaScript,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single,
+    breaklines=true,
+    showstringspaces=false
+}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor=black,
+}
+
+\begin{document}
+
+% TITLE PAGE
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    {\Large\textbf{TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN}}\\
+    {\Large\textbf{KHOA CÔNG NGHỆ THÔNG TIN}}\\
+    \vspace{1cm}
+    % \includegraphics[width=0.3\textwidth]{hcmus_logo.png} % Nếu chưa có file ảnh, comment lại
+    \vspace{1cm}
+    
+    {\huge\textbf{BÁO CÁO ĐỒ ÁN}}\\
+    \vspace{0.5cm}
+    {\Large\textbf{HỆ THỐNG QUẢN LÝ BỆNH VIỆN}}\\
+    {\Large\textbf{(HOSPITAL MANAGEMENT SYSTEM)}}\\
+    \vspace{1cm}
+    
+    {\large\textbf{Môn học: Phát triển ứng dụng Web}}\\
+    \vspace{2cm}
+    
+    \begin{tabular}{ll}
+    	\textbf{Sinh viên thực hiện:} & Trần Quang Lực \\
+    	\textbf{MSSV:} & 18127147 \\
+    	\textbf{Lớp:} & 18CLC3 \\
+    	\textbf{Giảng viên hướng dẫn:} & Thạc sĩ Nguyễn Trường Sơn \\
+    & Thạc sĩ Phạm Minh Tú \\
+    \end{tabular}
+    
+    \vfill
+    {\large TP. Hồ Chí Minh, tháng 8 năm 2025}
+\end{titlepage}
+
+% TABLE OF CONTENTS
+\tableofcontents
+\newpage
+
+% CHAPTER 1: GIỚI THIỆU
+\chapter{Giới thiệu đề tài}
+
+\section{Ý nghĩa và bối cảnh đề tài}
+Trong thời đại số hóa hiện nay, việc quản lý thông tin trong các cơ sở y tế là một nhu cầu cấp thiết. Hệ thống quản lý bệnh viện truyền thống sử dụng giấy tờ và quy trình thủ công không còn phù hợp với yêu cầu về tốc độ, độ chính xác và khả năng theo dõi thông tin bệnh nhân.
+
+Đề tài "Hệ thống quản lý bệnh viện" được giao nhằm đáp ứng các yêu cầu thực tiễn về digitalization, nâng cao hiệu quả công việc của đội ngũ y tế, cải thiện chất lượng dịch vụ chăm sóc bệnh nhân và ứng dụng kiến trúc microservices hiện đại trong lĩnh vực y tế.
+
+\section{Mục tiêu đề tài}
+\subsection{Mục tiêu chính}
+Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến trúc microservices, hỗ trợ:
+\begin{itemize}
+    \item Quản lý thông tin bệnh nhân
+    \item Đặt lịch và quản lý cuộc hẹn khám bệnh
+    \item Quản lý đơn thuốc và phát thuốc
+    \item Hệ thống thông báo qua email
+    \item Phân quyền người dùng theo vai trò
+\end{itemize}
+
+\subsection{Mục tiêu kỹ thuật}
+\begin{itemize}
+    \item Áp dụng kiến trúc microservices
+    \item Sử dụng Docker để containerization
+    \item Triển khai message queue với RabbitMQ
+    \item Xây dựng API RESTful
+    \item Tích hợp hệ thống gửi email tự động
+\end{itemize}
+
+\section{Phạm vi đề tài}
+\subsection{Chức năng được triển khai}
+\begin{itemize}
+    \item Quản lý người dùng (Admin, Doctor, Nurse, Receptionist)
+    \item Quản lý bệnh nhân
+    \item Quản lý lịch hẹn khám bệnh
+    \item Quản lý đơn thuốc
+    \item Hệ thống thông báo email
+    \item Dashboard theo vai trò
+\end{itemize}
+
+\subsection{Giới hạn}
+\begin{itemize}
+    \item Không tích hợp hệ thống thanh toán
+    \item Chưa hỗ trợ khám bệnh từ xa (telemedicine: tư vấn, khám chữa bệnh qua video call, chat trực tuyến)
+    \item Chỉ hỗ trợ thông báo qua email (chưa có SMS)
+\end{itemize}
+
+% CHAPTER 2: PHÂN TÍCH YÊU CẦU
+\chapter{Phân tích yêu cầu hệ thống}
+
+\section{Đối tượng sử dụng}
+\subsection{Người quản trị (Admin)}
+\begin{itemize}
+    \item Quản lý toàn bộ hệ thống
+    \item Tạo và quản lý tài khoản người dùng
+    \item Xem báo cáo tổng quan
+    \item Cấu hình hệ thống
+\end{itemize}
+
+\subsection{Bác sĩ (Doctor)}
+\begin{itemize}
+    \item Xem lịch hẹn của bản thân
+    \item Xem thông tin bệnh nhân liên quan
+    \item Tạo và quản lý đơn thuốc
+    \item Cập nhật trạng thái cuộc hẹn
+\end{itemize}
+
+\subsection{Y tá (Nurse)}
+\begin{itemize}
+    \item Xem danh sách bệnh nhân
+    \item Xem lịch hẹn của bệnh viện
+    \item Xác nhận và phát thuốc
+    \item Hỗ trợ gửi thông báo
+\end{itemize}
+
+\subsection{Lễ tân (Receptionist)}
+\begin{itemize}
+    \item Đăng ký bệnh nhân mới
+    \item Tạo và quản lý lịch hẹn
+    \item Xem thông tin bệnh nhân
+    \item Hỗ trợ check-in bệnh nhân
+\end{itemize}
+
+\section{Yêu cầu chức năng}
+
+\subsection{Quản lý người dùng}
+\begin{itemize}
+    \item Đăng nhập/Đăng xuất với JWT authentication
+    \item Phân quyền theo vai trò (RBAC)
+    \item Quản lý profile cá nhân
+    \item Reset mật khẩu
+\end{itemize}
+
+\subsection{Quản lý bệnh nhân}
+\begin{itemize}
+    \item Thêm bệnh nhân mới với thông tin đầy đủ
+    \item Cập nhật thông tin bệnh nhân
+    \item Tìm kiếm bệnh nhân theo nhiều tiêu chí
+    \item Xem lịch sử khám bệnh
+\end{itemize}
+
+\subsection{Quản lý lịch hẹn}
+\begin{itemize}
+    \item Đặt lịch hẹn cho bệnh nhân
+    \item Xem lịch theo ngày/tuần/tháng
+    \item Cập nhật trạng thái cuộc hẹn
+    \item Hủy và thay đổi lịch hẹn
+\end{itemize}
+
+\subsection{Quản lý đơn thuốc}
+\begin{itemize}
+    \item Bác sĩ tạo đơn thuốc
+    \item Thêm thuốc vào đơn với liều lượng
+    \item Y tá xác nhận và phát thuốc
+    \item Theo dõi trạng thái đơn thuốc
+\end{itemize}
+
+\subsection{Hệ thống thông báo}
+\begin{itemize}
+    \item Gửi email nhắc nhở lịch hẹn
+    \item Thông báo đơn thuốc sẵn sàng
+    \item Email xác nhận đặt lịch
+    \item Quản lý template email
+\end{itemize}
+
+\section{Yêu cầu phi chức năng}
+
+\subsection{Performance}
+\begin{itemize}
+    \item Thời gian phản hồi API < 500ms
+    \item Hỗ trợ đồng thời 100+ người dùng
+    \item Uptime 99.9\%
+\end{itemize}
+
+\subsection{Security}
+\begin{itemize}
+    \item Mã hóa mật khẩu với bcrypt
+    \item JWT token authentication
+    \item HTTPS cho production
+    \item Input validation và sanitization
+\end{itemize}
+
+\subsection{Scalability}
+\begin{itemize}
+    \item Kiến trúc microservices
+    \item Container hóa với Docker
+    \item Horizontal scaling capability
+    \item Database sharding ready
+\end{itemize}
+
+% CHAPTER 3: KIẾN TRÚC HỆ THỐNG
+\chapter{Kiến trúc hệ thống}
+
+\section{Tổng quan kiến trúc}
+Hệ thống được thiết kế theo mô hình microservices với các đặc điểm:
+\begin{itemize}
+    \item Phân tách thành các service độc lập
+    \item Communication qua HTTP API và Message Queue
+    \item Containerization với Docker
+    \item Load balancing và service discovery
+\end{itemize}
+
+\section{Các thành phần chính}
+
+\subsection{Frontend}
+\begin{itemize}
+    \item Technology: PHP, HTML5, CSS3, JavaScript, Bootstrap 5
+    \item Responsive design
+    \item Role-based UI
+    \item AJAX for dynamic interactions
+\end{itemize}
+
+\subsection{Backend Services}
+\subsubsection{User Service (Port 3001)}
+\begin{itemize}
+    \item Quản lý authentication và authorization
+    \item CRUD operations cho users
+    \item JWT token management
+    \item Password hashing và security
+\end{itemize}
+
+\subsubsection{Patient Service (Port 3002)}
+\begin{itemize}
+    \item Quản lý thông tin bệnh nhân
+    \item Patient registration và profile management
+    \item Search và filtering capabilities
+    \item Medical history tracking
+\end{itemize}
+
+\subsubsection{Appointment Service (Port 3003)}
+\begin{itemize}
+    \item Quản lý lịch hẹn khám bệnh
+    \item Scheduling algorithms
+    \item Conflict detection
+    \item Status management
+\end{itemize}
+
+\subsubsection{Prescription Service (Port 3005)}
+\begin{itemize}
+    \item Quản lý đơn thuốc
+    \item Medication management
+    \item Dosage calculations
+    \item Dispensing workflow
+\end{itemize}
+
+\subsubsection{Notification Service (Port 3006)}
+\begin{itemize}
+    \item Email notification system
+    \item Template management
+    \item Message queue integration
+    \item SMTP configuration
+\end{itemize}
+
+\subsection{Infrastructure}
+\subsubsection{Database}
+\begin{itemize}
+    \item PostgreSQL cho mỗi service
+    \item Database per service pattern
+    \item Prisma ORM
+    \item Migration management
+\end{itemize}
+
+\subsubsection{Message Queue}
+\begin{itemize}
+    \item RabbitMQ
+    \item Event-driven architecture
+    \item Asynchronous processing
+    \item Retry mechanisms
+\end{itemize}
+
+\subsubsection{Containerization}
+\begin{itemize}
+    \item Docker containers
+    \item Docker Compose orchestration
+    \item Environment configuration
+    \item Volume management
+\end{itemize}
+
+\section{Sơ đồ kiến trúc tổng quan}
+
+\begin{figure}[h!]
+\centering
+\begin{lstlisting}[language=text]
+-------------------      -------------------      -------------------
+|   Frontend      | <--> |   Load          | <--> |   API Gateway   |
+|   (PHP)         |      |   Balancer      |      |                 |
+|   Port 80       |      |                 |      |                 |
+-------------------      -------------------      -------------------
+                                    |
+    ---------------------------------------------------------------
+    |           |           |         |         |           |
+------------------- ------------------- ------------------- ------------------- -------------------
+| User Service   | |Patient Service| |Appointment   | |Prescr.      | | Notification   |
+| Port 3001      | | Port 3002     | |Service Port | |Service Port | | Service Port   |
+|                | |               | | 3003        | | 3005        | | 3006           |
+| PostgreSQL     | |PostgreSQL     | |PostgreSQL   | |PostgreSQL   | |PostgreSQL      |
+| User DB 5433   | |Patient DB5434 | |Appt DB5435  | |Rx DB 5436   | |Notif DB        |
+------------------- ------------------- ------------------- ------------------- -------------------
+                                    |
+                          -------------------
+                          |   RabbitMQ      |
+                          |   Port 5672     |
+                          |   Management    |
+                          |   Port 15672    |
+                          -------------------
+\end{lstlisting}
+\caption{Sơ đồ kiến trúc tổng quan hệ thống}
+\end{figure}
+
+% CHAPTER 4: THIẾT KẾ CHI TIẾT
+\chapter{Thiết kế chi tiết hệ thống}
+
+\section{Database Schema}
+
+\subsection{User Service Database}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+email & String & Email đăng nhập (unique) \\
+\hline
+password & String & Mật khẩu đã hash \\
+\hline
+fullName & String & Họ và tên \\
+\hline
+role & Enum & ADMIN, DOCTOR, NURSE, RECEPTIONIST \\
+\hline
+isActive & Boolean & Trạng thái hoạt động \\
+\hline
+createdAt & DateTime & Ngày tạo \\
+\hline
+updatedAt & DateTime & Ngày cập nhật \\
+\hline
+\caption{Bảng Users}
+\end{longtable}
+
+\subsection{Patient Service Database}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+fullName & String & Họ và tên bệnh nhân \\
+\hline
+email & String & Email liên hệ \\
+\hline
+phone & String & Số điện thoại \\
+\hline
+address & String & Địa chỉ \\
+\hline
+dateOfBirth & DateTime & Ngày sinh \\
+\hline
+gender & Enum & MALE, FEMALE, OTHER \\
+\hline
+emergencyContact & String & Người liên hệ khẩn cấp \\
+\hline
+emergencyPhone & String & SĐT người liên hệ khẩn cấp \\
+\hline
+medicalHistory & String & Tiền sử bệnh \\
+\hline
+allergies & String & Dị ứng \\
+\hline
+createdAt & DateTime & Ngày tạo \\
+\hline
+updatedAt & DateTime & Ngày cập nhật \\
+\hline
+\caption{Bảng Patients}
+\end{longtable}
+
+\subsection{Appointment Service Database}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+patientId & String & Foreign key tới Patient \\
+\hline
+doctorId & String & Foreign key tới User (Doctor) \\
+\hline
+startTime & DateTime & Thời gian bắt đầu \\
+\hline
+endTime & DateTime & Thời gian kết thúc \\
+\hline
+reason & String & Lý do khám \\
+\hline
+status & Enum & SCHEDULED, CONFIRMED, COMPLETED, CANCELLED \\
+\hline
+notes & String & Ghi chú từ bác sĩ \\
+\hline
+createdAt & DateTime & Ngày tạo \\
+\hline
+updatedAt & DateTime & Ngày cập nhật \\
+\hline
+\caption{Bảng Appointments}
+\end{longtable}
+
+\subsection{Prescription Service Database}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+appointmentId & String & Foreign key tới Appointment \\
+\hline
+status & Enum & ISSUED, DISPENSED, CANCELLED \\
+\hline
+notes & String & Ghi chú từ bác sĩ \\
+\hline
+createdAt & DateTime & Ngày tạo \\
+\hline
+updatedAt & DateTime & Ngày cập nhật \\
+\hline
+\caption{Bảng Prescriptions}
+\end{longtable}
+
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+prescriptionId & String & Foreign key tới Prescription \\
+\hline
+medicationName & String & Tên thuốc \\
+\hline
+dosage & String & Liều lượng \\
+\hline
+frequency & String & Tần suất sử dụng \\
+\hline
+duration & String & Thời gian sử dụng \\
+\hline
+instructions & String & Hướng dẫn sử dụng \\
+\hline
+\caption{Bảng PrescriptionItems}
+\end{longtable}
+
+\section{API Design}
+
+\subsection{User Service APIs}
+\begin{itemize}
+    \item \texttt{POST /auth/login} - Đăng nhập
+    \item \texttt{POST /auth/register} - Đăng ký (Admin only)
+    \item \texttt{GET /users} - Lấy danh sách users
+    \item \texttt{GET /users/:id} - Lấy thông tin user
+    \item \texttt{PUT /users/:id} - Cập nhật user
+    \item \texttt{DELETE /users/:id} - Xóa user
+\end{itemize}
+
+\subsection{Patient Service APIs}
+\begin{itemize}
+    \item \texttt{GET /patients} - Lấy danh sách bệnh nhân
+    \item \texttt{POST /patients} - Tạo bệnh nhân mới
+    \item \texttt{GET /patients/:id} - Lấy thông tin bệnh nhân
+    \item \texttt{PUT /patients/:id} - Cập nhật bệnh nhân
+    \item \texttt{DELETE /patients/:id} - Xóa bệnh nhân
+\end{itemize}
+
+\subsection{Appointment Service APIs}
+\begin{itemize}
+    \item \texttt{GET /appointments} - Lấy danh sách lịch hẹn
+    \item \texttt{POST /appointments} - Tạo lịch hẹn mới
+    \item \texttt{GET /appointments/:id} - Lấy thông tin lịch hẹn
+    \item \texttt{PUT /appointments/:id} - Cập nhật lịch hẹn
+    \item \texttt{DELETE /appointments/:id} - Hủy lịch hẹn
+\end{itemize}
+
+\subsection{Prescription Service APIs}
+\begin{itemize}
+    \item \texttt{GET /prescriptions} - Lấy danh sách đơn thuốc
+    \item \texttt{POST /prescriptions} - Tạo đơn thuốc mới
+    \item \texttt{GET /prescriptions/:id} - Lấy thông tin đơn thuốc
+    \item \texttt{PUT /prescriptions/:id} - Cập nhật đơn thuốc
+    \item \texttt{POST /prescriptions/:id/items} - Thêm thuốc vào đơn
+\end{itemize}
+
+\subsection{Notification Service APIs}
+\begin{itemize}
+    \item \texttt{POST /notifications/appointment-reminder/:id} - Gửi nhắc lịch hẹn
+    \item \texttt{POST /notifications/prescription-ready/:id} - Thông báo đơn thuốc
+    \item \texttt{GET /notifications/upcoming-appointments/:days} - Lịch hẹn sắp tới
+    \item \texttt{GET /notifications/ready-prescriptions} - Đơn thuốc sẵn sàng
+\end{itemize}
+
+\section{Message Queue Design}
+
+\subsection{Event Types}
+\subsubsection{Appointment Events}
+\begin{itemize}
+    \item \texttt{appointment.created} - Khi tạo lịch hẹn mới
+    \item \texttt{appointment.confirmed} - Khi xác nhận lịch hẹn
+    \item \texttt{appointment.reminder} - Khi cần gửi nhắc nhở
+    \item \texttt{appointment.cancelled} - Khi hủy lịch hẹn
+\end{itemize}
+
+\subsubsection{Prescription Events}
+\begin{itemize}
+    \item \texttt{prescription.created} - Khi tạo đơn thuốc mới
+    \item \texttt{prescription.ready} - Khi đơn thuốc sẵn sàng
+    \item \texttt{prescription.dispensed} - Khi đã phát thuốc
+    \item \texttt{prescription.cancelled} - Khi hủy đơn thuốc
+\end{itemize}
+
+\subsection{Queue Configuration}
+\begin{itemize}
+    \item Exchange Type: Topic
+    \item Durable: true
+    \item Auto-delete: false
+    \item Routing Keys: service.event pattern
+\end{itemize}
+
+% CHAPTER 5: PHÂN QUYỀN HỆ THỐNG
+\chapter{Phân quyền hệ thống}
+
+\section{Ma trận phân quyền}
+
+\begin{longtable}{|p{3cm}|p{2cm}|p{2cm}|p{2cm}|p{2cm}|}
+\hline
+\textbf{Chức năng} & \textbf{Admin} & \textbf{Doctor} & \textbf{Nurse} & \textbf{Receptionist} \\
+\hline
+\multicolumn{5}{|c|}{\textbf{Quản lý người dùng}} \\
+\hline
+Tạo user & x & - & - & - \\
+\hline
+Xem user & x & - & - & - \\
+\hline
+Sửa user & x & - & - & - \\
+\hline
+Xóa user & x & - & - & - \\
+\hline
+\multicolumn{5}{|c|}{\textbf{Quản lý bệnh nhân}} \\
+\hline
+Xem tất cả bệnh nhân & x & - & x & x \\
+\hline
+Xem bệnh nhân liên quan & x & x & x & x \\
+\hline
+Tạo bệnh nhân & x & - & - & x \\
+\hline
+Sửa bệnh nhân & x & - & - & x \\
+\hline
+Xóa bệnh nhân & x & - & - & - \\
+\hline
+\multicolumn{5}{|c|}{\textbf{Quản lý lịch hẹn}} \\
+\hline
+Xem tất cả lịch hẹn & x & - & x & x \\
+\hline
+Xem lịch hẹn của mình & x & x & x & x \\
+\hline
+Tạo lịch hẹn & x & - & - & x \\
+\hline
+Sửa lịch hẹn & x & x & - & x \\
+\hline
+Hủy lịch hẹn & x & x & - & x \\
+\hline
+\multicolumn{5}{|c|}{\textbf{Quản lý đơn thuốc}} \\
+\hline
+Xem đơn thuốc & x & x & x & - \\
+\hline
+Tạo đơn thuốc & x & x & - & - \\
+\hline
+Sửa đơn thuốc & x & x & - & - \\
+\hline
+Phát thuốc & x & - & x & - \\
+\hline
+\multicolumn{5}{|c|}{\textbf{Hệ thống thông báo}} \\
+\hline
+Gửi thông báo & x & - & x & - \\
+\hline
+Xem lịch sử thông báo & x & - & - & - \\
+\hline
+\caption{Ma trận phân quyền hệ thống}
+\end{longtable}
+
+\section{Mô tả chi tiết từng vai trò}
+
+\subsection{Administrator (ADMIN)}
+Người quản trị có toàn quyền trong hệ thống:
+\begin{itemize}
+    \item Quản lý tài khoản người dùng (CRUD)
+    \item Xem toàn bộ dữ liệu hệ thống
+    \item Cấu hình hệ thống
+    \item Xem báo cáo tổng quan
+    \item Backup và restore dữ liệu
+\end{itemize}
+
+\subsection{Doctor (DOCTOR)}
+Bác sĩ tập trung vào hoạt động khám chữa bệnh:
+\begin{itemize}
+    \item Xem lịch hẹn của bản thân
+    \item Xem thông tin bệnh nhân có lịch hẹn
+    \item Tạo và quản lý đơn thuốc
+    \item Cập nhật trạng thái cuộc hẹn
+    \item Ghi chú khám bệnh
+\end{itemize}
+
+\subsection{Nurse (NURSE)}
+Y tá hỗ trợ quy trình điều trị:
+\begin{itemize}
+    \item Xem danh sách bệnh nhân và lịch hẹn
+    \item Xem và xác nhận đơn thuốc
+    \item Phát thuốc cho bệnh nhân
+    \item Gửi thông báo nhắc nhở
+    \item Hỗ trợ bác sĩ trong khám bệnh
+\end{itemize}
+
+\subsection{Receptionist (RECEPTIONIST)}
+Lễ tân quản lý tiếp đón bệnh nhân:
+\begin{itemize}
+    \item Đăng ký bệnh nhân mới
+    \item Tạo và quản lý lịch hẹn
+    \item Check-in bệnh nhân
+    \item Cập nhật thông tin liên hệ
+    \item Hỗ trợ bệnh nhân và gia đình
+\end{itemize}
+
+% CHAPTER 6: TRIỂN KHAI VÀ CÔNG NGHỆ
+\chapter{Triển khai và công nghệ sử dụng}
+
+\section{Công nghệ sử dụng}
+
+\subsection{Frontend Technologies}
+\begin{itemize}
+    \item \textbf{PHP 8.0+}: Server-side scripting
+    \item \textbf{HTML5}: Markup language
+    \item \textbf{CSS3}: Styling với Flexbox và Grid
+    \item \textbf{JavaScript ES6+}: Client-side interactivity
+    \item \textbf{Bootstrap 5}: Responsive UI framework
+    \item \textbf{Font Awesome}: Icon library
+\end{itemize}
+
+\subsection{Backend Technologies}
+\begin{itemize}
+    \item \textbf{Node.js 18+}: JavaScript runtime
+    \item \textbf{Express.js}: Web application framework
+    \item \textbf{Prisma}: Modern database toolkit và ORM
+    \item \textbf{bcryptjs}: Password hashing
+    \item \textbf{jsonwebtoken}: JWT authentication
+    \item \textbf{nodemailer}: Email sending library
+\end{itemize}
+
+\subsection{Database}
+\begin{itemize}
+    \item \textbf{PostgreSQL 14}: Relational database
+    \item \textbf{Prisma Migrate}: Database migration tool
+    \item \textbf{Database per Service}: Microservices pattern
+\end{itemize}
+
+\subsection{Message Queue}
+\begin{itemize}
+    \item \textbf{RabbitMQ}: Message broker
+    \item \textbf{amqplib}: Node.js AMQP client
+    \item \textbf{Topic Exchange}: Message routing
+\end{itemize}
+
+\subsection{DevOps và Deployment}
+\begin{itemize}
+    \item \textbf{Docker}: Containerization
+    \item \textbf{Docker Compose}: Multi-container orchestration
+    \item \textbf{Nginx}: Reverse proxy và load balancer
+    \item \textbf{Git}: Version control system
+\end{itemize}
+
+\section{Cấu trúc project}
+
+\begin{lstlisting}[language=bash]
+hospital-management/
+|-- frontend/                 # PHP Frontend
+|   |-- assets/              # CSS, JS, Images
+|   |-- includes/            # Common PHP files
+|   |-- pages/               # Individual pages
+|   `-- *.php               # Main pages
+|-- services/                # Microservices
+|   |-- user-service/        # User management
+|   |-- patient-service/     # Patient management
+|   |-- appointment-service/ # Appointment management
+|   |-- prescription-service/# Prescription management
+|   `-- notification-service/# Email notifications
+|-- docker-compose.yml       # Services orchestration
+`-- README.md               # Project documentation
+\end{lstlisting}
+
+\section{Docker Configuration}
+
+\subsection{Service Containers}
+Mỗi microservice được containerized riêng biệt:
+
+\begin{lstlisting}[language=text, caption=docker-compose.yml excerpt]
+services:
+  user-service:
+    build: ./services/user-service
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://admin:password@user-db:5432/user_db
+      - JWT_SECRET=your-secret-key
+    depends_on:
+      - user-db
+      
+  notification-service:
+    build: ./services/notification-service
+    ports:
+      - "3006:3005"
+    environment:
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_USER=${GMAIL_USER}
+      - SMTP_PASS=${GMAIL_APP_PASSWORD}
+    depends_on:
+      - rabbitmq
+\end{lstlisting}
+
+\subsection{Database Containers}
+Mỗi service có database riêng:
+
+% (Bảng phân quyền chi tiết được trình bày ở phần trên, không để trong lstlisting vì có ký tự Unicode)
+
+% CHAPTER 7: CHỨC NĂNG CHI TIẾT
+\chapter{Chức năng chi tiết hệ thống}
+
+\section{Quản lý người dùng}
+
+\subsection{Đăng nhập hệ thống}
+\begin{itemize}
+    \item Input: Email và password
+    \item Validation: Email format, password strength
+    \item Authentication: JWT token generation
+    \item Authorization: Role-based access control
+    \item Session management: Token expiry và refresh
+\end{itemize}
+
+\subsection{Quản lý tài khoản}
+\begin{itemize}
+    \item Tạo tài khoản mới với role chỉ định
+    \item Cập nhật thông tin profile
+    \item Thay đổi mật khẩu
+    \item Vô hiệu hóa/kích hoạt tài khoản
+    \item Phân quyền theo vai trò
+\end{itemize}
+
+\section{Quản lý bệnh nhân}
+
+\subsection{Đăng ký bệnh nhân mới}
+Quy trình đăng ký bệnh nhân:
+\begin{enumerate}
+    \item Thu thập thông tin cơ bản (họ tên, ngày sinh, giới tính)
+    \item Thông tin liên hệ (email, số điện thoại, địa chỉ)
+    \item Người liên hệ khẩn cấp
+    \item Tiền sử bệnh và dị ứng
+    \item Validation và lưu vào database
+    \item Tạo mã bệnh nhân unique
+\end{enumerate}
+
+\subsection{Tìm kiếm bệnh nhân}
+Hỗ trợ tìm kiếm theo:
+\begin{itemize}
+    \item Họ tên (partial match)
+    \item Số điện thoại
+    \item Email
+    \item Mã bệnh nhân
+    \item Ngày sinh
+\end{itemize}
+
+\section{Quản lý lịch hẹn}
+
+\subsection{Đặt lịch hẹn}
+\begin{enumerate}
+    \item Chọn bệnh nhân (existing hoặc new)
+    \item Chọn bác sĩ từ danh sách available
+    \item Chọn ngày và giờ khám
+    \item Kiểm tra conflict với lịch existing
+    \item Nhập lý do khám
+    \item Xác nhận và lưu lịch hẹn
+    \item Gửi email xác nhận (via RabbitMQ)
+\end{enumerate}
+
+\subsection{Quản lý lịch hẹn}
+\begin{itemize}
+    \item View calendar với multiple views (day, week, month)
+    \item Color coding theo trạng thái
+    \item Drag-and-drop để reschedule
+    \item Bulk operations (cancel, reschedule)
+    \item Export lịch hẹn (PDF, Excel)
+\end{itemize}
+
+\section{Quản lý đơn thuốc}
+
+\subsection{Tạo đơn thuốc}
+Bác sĩ tạo đơn thuốc sau khám:
+\begin{enumerate}
+    \item Chọn appointment đã khám
+    \item Thêm thuốc vào đơn:
+        \begin{itemize}
+            \item Tên thuốc
+            \item Liều lượng
+            \item Tần suất sử dụng
+            \item Thời gian sử dụng
+            \item Hướng dẫn đặc biệt
+        \end{itemize}
+    \item Ghi chú bổ sung
+    \item Lưu đơn thuốc với status ISSUED
+    \item Thông báo cho y tá (via RabbitMQ)
+\end{enumerate}
+
+\subsection{Phát thuốc}
+Y tá thực hiện phát thuốc:
+\begin{enumerate}
+    \item Xem danh sách đơn thuốc ISSUED
+    \item Kiểm tra và chuẩn bị thuốc
+    \item Xác nhận với bệnh nhân
+    \item Cập nhật status thành DISPENSED
+    \item Gửi email thông báo (via RabbitMQ)
+    \item In nhãn thuốc và hướng dẫn
+\end{enumerate}
+
+\section{Hệ thống thông báo}
+
+\subsection{Email Templates}
+\subsubsection{Appointment Reminder}
+\begin{itemize}
+    \item Subject: Nhắc nhở lịch khám
+    \item Content: Thông tin bác sĩ, thời gian, địa điểm
+    \item Call-to-action: Xác nhận hoặc reschedule
+    \item Responsive HTML template
+\end{itemize}
+
+\subsubsection{Prescription Ready}
+\begin{itemize}
+    \item Subject: Đơn thuốc sẵn sàng
+    \item Content: Danh sách thuốc, hướng dẫn lấy thuốc
+    \item Location: Quầy thuốc, giờ hoạt động
+    \item Expiry warning: Thời hạn lấy thuốc
+\end{itemize}
+
+\subsection{Event-Driven Notifications}
+\begin{itemize}
+    \item Automatic triggers via RabbitMQ
+    \item Retry mechanism cho failed emails
+    \item Delivery status tracking
+    \item Template customization
+    \item Multi-language support (future)
+\end{itemize}
+
+% CHAPTER 8: KIỂM THỬ VÀ DEMO
+\chapter{Kiểm thử và demo hệ thống}
+
+\section{Test Strategy}
+
+\subsection{Unit Testing}
+\begin{itemize}
+    \item Test individual functions và methods
+    \item Mock external dependencies
+    \item Code coverage > 80\%
+    \item Automated test suites
+\end{itemize}
+
+\subsection{Integration Testing}
+\begin{itemize}
+    \item Test API endpoints
+    \item Database operations
+    \item Service-to-service communication
+    \item Message queue functionality
+\end{itemize}
+
+\subsection{End-to-End Testing}
+\begin{itemize}
+    \item Complete user workflows
+    \item Cross-browser compatibility
+    \item Mobile responsiveness
+    \item Performance testing
+\end{itemize}
+
+\section{Test Cases}
+
+\subsection{Authentication Test Cases}
+\begin{enumerate}
+    \item Valid login với correct credentials
+    \item Invalid login với wrong password
+    \item JWT token expiry handling
+    \item Role-based access control
+    \item Session management
+\end{enumerate}
+
+\subsection{Appointment Management Test Cases}
+\begin{enumerate}
+    \item Create appointment với valid data
+    \item Prevent double booking
+    \item Update appointment status
+    \item Cancel appointment
+    \item Email notification sending
+\end{enumerate}
+
+\subsection{Prescription Management Test Cases}
+\begin{enumerate}
+    \item Doctor creates prescription
+    \item Add multiple medications
+    \item Nurse dispenses prescription
+    \item Status tracking workflow
+    \item Email notification flow
+\end{enumerate}
+
+\section{Demo Scenarios}
+
+\subsection{Scenario 1: Complete Patient Journey}
+\begin{enumerate}
+    \item Receptionist registers new patient
+    \item Schedule appointment với doctor
+    \item Doctor conducts consultation
+    \item Doctor creates prescription
+    \item Nurse dispenses medication
+    \item Patient receives email notifications
+\end{enumerate}
+
+\subsection{Scenario 2: Doctor Workflow}
+\begin{enumerate}
+    \item Doctor logs in
+    \item Views today's appointments
+    \item Sees only related patients
+    \item Creates prescription after consultation
+    \item Updates appointment status
+\end{enumerate}
+
+\subsection{Scenario 3: Admin Management}
+\begin{enumerate}
+    \item Admin creates new user accounts
+    \item Assigns appropriate roles
+    \item Views system-wide statistics
+    \item Manages user permissions
+    \item Monitors system health
+\end{enumerate}
+
+\section{Performance Metrics}
+
+\subsection{Response Time Targets}
+\begin{itemize}
+    \item Page load time: < 2 seconds
+    \item API response time: < 500ms
+    \item Database queries: < 100ms
+    \item Email sending: < 5 seconds
+\end{itemize}
+
+\subsection{Scalability Metrics}
+\begin{itemize}
+    \item Concurrent users: 100+
+    \item Daily appointments: 1000+
+    \item Database records: 10,000+
+    \item Email throughput: 500/hour
+\end{itemize}
+
+% CHAPTER 9: ĐÁNH GIÁ KẾT QUẢ
+\chapter{Đánh giá kết quả}
+
+\section{Mục tiêu đã đạt được}
+
+\subsection{Chức năng hệ thống}
+\begin{itemize}
+    \item Hoàn thành quản lý người dùng với 4 roles
+    \item Triển khai quản lý bệnh nhân đầy đủ
+    \item Xây dựng hệ thống đặt lịch hẹn
+    \item Phát triển quản lý đơn thuốc
+    \item Tích hợp hệ thống thông báo email
+    \item Phân quyền theo vai trò chính xác
+\end{itemize}
+
+\subsection{Kiến trúc kỹ thuật}
+\begin{itemize}
+    \item Microservices architecture
+    \item Docker containerization
+    \item RabbitMQ message queue
+    \item RESTful API design
+    \item JWT authentication
+    \item Database per service pattern
+\end{itemize}
+
+\subsection{Chất lượng code}
+\begin{itemize}
+    \item Clean code practices
+    \item Error handling và validation
+    \item Security best practices
+    \item Responsive UI design
+    \item Code documentation
+\end{itemize}
+
+\section{Ưu điểm của hệ thống}
+
+\subsection{Scalability}
+\begin{itemize}
+    \item Microservices cho phép scale từng component riêng biệt
+    \item Horizontal scaling với load balancer
+    \item Database sharding capability
+    \item Message queue để handle high throughput
+\end{itemize}
+
+\subsection{Maintainability}
+\begin{itemize}
+    \item Separation of concerns rõ ràng
+    \item Independent deployment cho mỗi service
+    \item Consistent API design patterns
+    \item Comprehensive error logging
+\end{itemize}
+
+\subsection{User Experience}
+\begin{itemize}
+    \item Intuitive role-based interface
+    \item Responsive design cho mobile
+    \item Real-time notifications
+    \item Fast page load times
+\end{itemize}
+
+\subsection{Security}
+\begin{itemize}
+    \item JWT token authentication
+    \item Password hashing với bcrypt
+    \item Role-based access control
+    \item Input validation và sanitization
+\end{itemize}
+
+\section{Hạn chế và cải thiện}
+
+\subsection{Hạn chế hiện tại}
+\begin{itemize}
+    \item Chưa có payment integration
+    \item Thiếu real-time chat support
+    \item Chưa hỗ trợ telemedicine
+    \item Limited reporting capabilities
+    \item Chưa có mobile app
+\end{itemize}
+
+\subsection{Hướng phát triển}
+\begin{itemize}
+    \item Tích hợp thanh toán online
+    \item Video consultation feature
+    \item Advanced analytics và reporting
+    \item Mobile application (React Native)
+    \item AI-powered appointment scheduling
+    \item Integration với medical devices
+\end{itemize}
+
+\section{Bài học kinh nghiệm}
+
+\subsection{Kỹ thuật}
+\begin{itemize}
+    \item Microservices requires careful service boundaries design
+    \item Message queue essential cho event-driven architecture
+    \item Docker greatly simplifies deployment
+    \item API versioning important cho backward compatibility
+\end{itemize}
+
+\subsection{Quản lý dự án}
+\begin{itemize}
+    \item Clear requirements definition crucial
+    \item Iterative development approach hiệu quả
+    \item Regular testing prevents major bugs
+    \item Documentation saves development time
+\end{itemize}
+
+% CHAPTER 10: KẾT LUẬN
+\chapter{Kết luận}
+
+\section{Tổng kết đề tài}
+Đề tài "Hệ thống quản lý bệnh viện" đã được triển khai thành công với kiến trúc microservices hiện đại. Hệ thống đáp ứng đầy đủ các yêu cầu chức năng về quản lý bệnh nhân, lịch hẹn, đơn thuốc và thông báo. Việc áp dụng các công nghệ như Docker, RabbitMQ, và JWT authentication đã tạo ra một hệ thống scalable, maintainable và secure.
+
+\section{Đóng góp của đề tài}
+\begin{itemize}
+    \item Demonstrating microservices architecture trong healthcare domain
+    \item Implementing event-driven communication với RabbitMQ
+    \item Role-based access control cho healthcare scenarios
+    \item Email notification system với professional templates
+    \item Docker containerization cho easy deployment
+\end{itemize}
+
+\section{Kiến thức đã học được}
+\subsection{Technical Skills}
+\begin{itemize}
+    \item Microservices architecture design
+    \item RESTful API development
+    \item Database design và optimization
+    \item Message queue implementation
+    \item Docker containerization
+    \item JWT authentication
+\end{itemize}
+
+\subsection{Soft Skills}
+\begin{itemize}
+    \item Project planning và time management
+    \item Problem-solving trong complex systems
+    \item Documentation writing
+    \item System design thinking
+    \item Testing methodologies
+\end{itemize}
+
+\section{Lời cảm ơn}
+Em xin chân thành cảm ơn:
+\begin{itemize}
+    \item Thầy/Cô giảng viên hướng dẫn đã tận tình chỉ bảo
+    \item Khoa Công nghệ Thông tin, Trường ĐHKHTN đã tạo điều kiện học tập
+    \item Các bạn đồng môn đã hỗ trợ và trao đổi kiến thức
+    \item Gia đình đã động viên và hỗ trợ trong quá trình thực hiện
+\end{itemize}
+
+% REFERENCES
+\begin{thebibliography}{99}
+
+\bibitem{microservices}
+Newman, Sam. \textit{Building Microservices: Designing Fine-Grained Systems}. O'Reilly Media, 2015.
+
+\bibitem{docker}
+Nickoloff, Jeff and Kuenzli, Stephen. \textit{Docker in Action}. Manning Publications, 2019.
+
+\bibitem{nodejs}
+Cantelon, Mike et al. \textit{Node.js in Action}. Manning Publications, 2017.
+
+\bibitem{postgresql}
+Obe, Regina and Hsu, Leo. \textit{PostgreSQL: Up and Running}. O'Reilly Media, 2017.
+
+\bibitem{rabbitmq}
+Videla, Alvaro and Williams, Jason J.W. \textit{RabbitMQ in Action}. Manning Publications, 2012.
+
+\bibitem{jwt}
+Jones, Michael et al. \textit{JSON Web Token (JWT)}. RFC 7519, 2015.
+
+\bibitem{restapi}
+Richardson, Leonard and Amundsen, Mike. \textit{RESTful Web APIs}. O'Reilly Media, 2013.
+
+\bibitem{healthcare}
+Wager, Karen A. et al. \textit{Health Care Information Systems: A Practical Approach for Health Care Management}. Jossey-Bass, 2017.
+
+\end{thebibliography}
+
+% APPENDICES
+\appendix
+
+\chapter{Cấu hình Docker Compose}
+% \lstinputlisting[language=yaml, caption=docker-compose.yml]{docker-compose.yml} % Nếu chưa có file, comment lại
+
+\chapter{Database Schema Scripts}
+% \lstinputlisting[language=sql, caption=User Service Schema]{services/user-service/prisma/schema.prisma} % Nếu chưa có file, comment lại
+
+\chapter{API Documentation}
+\section{User Service APIs}
+\subsection{POST /auth/login}
+\begin{lstlisting}[language=text]
+{
+  "email": "doctor@hospital.com",
+  "password": "password123"
+}
+\end{lstlisting}
+
+Response:
+\begin{lstlisting}[language=text]
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "doctor@hospital.com",
+    "fullName": "Dr. John Doe",
+    "role": "DOCTOR"
+  }
+}
+\end{lstlisting}
+
+\chapter{Hướng dẫn cài đặt}
+\section{Prerequisites}
+\begin{itemize}
+    \item Docker và Docker Compose
+    \item Git
+    \item Gmail account với App Password
+\end{itemize}
+
+\section{Installation Steps}
+\begin{enumerate}
+    \item Clone repository
+    \item Copy .env.example files
+    \item Configure environment variables
+    \item Run docker-compose up --build
+    \item Access application at http://localhost
+\end{enumerate}
+
+\end{document}
