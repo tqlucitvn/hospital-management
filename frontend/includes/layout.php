@@ -322,6 +322,9 @@
                     </ul>
                 </div>
 
+                <!-- Language Switcher -->
+                <?php include __DIR__ . '/language-switcher.php'; ?>
+
                 <!-- User menu -->
                 <div class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"

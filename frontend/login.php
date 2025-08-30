@@ -321,7 +321,10 @@ $pageTitle = 'Login';
         <div class="shape"></div>
         <div class="shape"></div>
     </div>
-
+    <!-- Language Switcher Top Right -->
+    <div style="position: fixed; top: 24px; right: 32px; z-index: 2000;">
+        <?php include __DIR__ . '/includes/language-switcher.php'; ?>
+    </div>
     <!-- Loading Spinner -->
     <div class="spinner-overlay" id="loadingSpinner">
         <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
