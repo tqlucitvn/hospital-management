@@ -1,8 +1,9 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 requireRole('ADMIN');
 
-$pageTitle = 'User Management';
+$pageTitle = __('user_management');
 $user = getCurrentUser();
 $action = $_GET['action'] ?? 'list';
 
@@ -30,7 +31,7 @@ function getRoleClass($role) {
 function getUserAvatar($fullName = '', $email = '') {
     // Prioritize fullName, then email as fallback
     $name = '';
-    if (!empty($fullName) && $fullName !== 'Not provided') {
+    if (!empty($fullName) && $fullName !== __('not_provided')) {
         $name = $fullName;
     } elseif (!empty($email)) {
         $name = $email;
@@ -40,7 +41,7 @@ function getUserAvatar($fullName = '', $email = '') {
 
 function getDisplayName($userItem) {
     // Check multiple possible field names for user's name
-    if (!empty($userItem['fullName']) && $userItem['fullName'] !== 'Not provided') {
+    if (!empty($userItem['fullName']) && $userItem['fullName'] !== __('not_provided')) {
         return $userItem['fullName'];
     } elseif (!empty($userItem['name'])) {
         return $userItem['name'];
@@ -54,7 +55,7 @@ function getDisplayName($userItem) {
     if (!empty($userItem['email'])) {
         return explode('@', $userItem['email'])[0];
     }
-    return 'Unknown User';
+    return __('unknown');
 }
 
 function getPhoneNumber($userItem) {
@@ -79,7 +80,7 @@ $offset = ($page - 1) * $limit;
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid CSRF token.';
+        $error = __('invalid_csrf_token');
     } else {
         $token = $_SESSION['token'];
         
@@ -97,10 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $response = makeApiCall(USER_SERVICE_URL . '/register', 'POST', $userData);
             
             if ($response['status_code'] === 201) {
-                $success = 'User created successfully.';
+                $success = __('user_created_success');
                 $action = 'list';
             } else {
-                $error = handleApiError($response) ?: 'Failed to create user.';
+                $error = handleApiError($response) ?: __('failed_to_create_user');
             }
         } elseif ($action === 'edit' && isset($_POST['id'])) {
             // Update user
@@ -119,12 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'PUT', $userData, $token);
-            if ($response['status_code'] === 200) {
-                // Chuyển về trang chi tiết user vừa sửa để hiển thị dữ liệu mới nhất
-                header('Location: users.php?action=view&id=' . urlencode($userId) . '&success=' . urlencode('User updated successfully.'));
+                if ($response['status_code'] === 200) {
+                // Redirect to the updated user view to show latest data
+                header('Location: users.php?action=view&id=' . urlencode($userId) . '&success=' . urlencode(__('user_updated_success')));
                 exit();
             } else {
-                $error = handleApiError($response) ?: 'Failed to update user.';
+                $error = handleApiError($response) ?: __('failed_to_update_user');
             }
         } elseif ($action === 'update_role' && isset($_POST['user_id'])) {
             // Update user role only
@@ -135,10 +136,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    ['role' => $newRole], $token);
             
             if ($response['status_code'] === 200) {
-                $success = 'User role updated successfully.';
+                $success = __('user_role_updated_success');
                 $action = 'list';
             } else {
-                $error = handleApiError($response) ?: 'Failed to update user role.';
+                $error = handleApiError($response) ?: __('failed_to_update_user_role');
             }
         }
     }
@@ -152,9 +153,9 @@ if ($action === 'delete' && isset($_GET['id'])) {
     $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'DELETE', null, $token);
     
     if ($response['status_code'] === 200 || $response['status_code'] === 204) {
-        $success = 'User deleted successfully.';
+        $success = __('user_deleted_success');
     } else {
-        $error = handleApiError($response) ?: 'Failed to delete user.';
+        $error = handleApiError($response) ?: __('failed_to_delete_user');
     }
     $action = 'list';
 }
@@ -223,20 +224,20 @@ try {
                 $pagination = paginate($page, $totalPages, $baseUrl);
             }
         } else {
-            $error = handleApiError($response) ?: 'Failed to load users.';
+            $error = handleApiError($response) ?: __('failed_to_load_users');
         }
     } elseif (($action === 'edit' || $action === 'view') && isset($_GET['id'])) {
         $userId = $_GET['id'];
         $response = makeApiCall(USER_SERVICE_URL . '/' . $userId, 'GET', null, $token);
         if ($response['status_code'] === 200) {
             $selectedUser = $response['data'];
-        } else {
-            $error = handleApiError($response) ?: 'User not found.';
+    } else {
+        $error = handleApiError($response) ?: __('user_not_found');
         }
     }
     
 } catch (Exception $e) {
-    $error = 'System error: ' . $e->getMessage();
+    $error = sprintf(__('system_error_with_message'), $e->getMessage());
 }
 
 // Start output buffering for page content
@@ -248,16 +249,16 @@ ob_start();
     <div>
         <h1 class="h3 mb-1">
             <i class="bi bi-people"></i>
-            User Management
+            <?php echo __('user_management'); ?>
         </h1>
-        <p class="text-muted mb-0">Manage system users and their roles</p>
+        <p class="text-muted mb-0"><?php echo __('manage_system_users_description'); ?></p>
     </div>
     
     <?php if ($action === 'list'): ?>
     <div>
         <a href="users.php?action=add" class="btn btn-primary">
             <i class="bi bi-person-plus"></i>
-            Add User
+            <?php echo __('add_user'); ?>
         </a>
     </div>
     <?php endif; ?>
@@ -266,14 +267,14 @@ ob_start();
 <?php if ($error): ?>
     <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle"></i>
-        <?php echo $error; ?>
+    <?php echo htmlspecialchars($error); ?>
     </div>
 <?php endif; ?>
 
 <?php if ($success): ?>
     <div class="alert alert-success">
         <i class="bi bi-check-circle"></i>
-        <?php echo $success; ?>
+    <?php echo htmlspecialchars($success); ?>
     </div>
 <?php endif; ?>
 
@@ -285,7 +286,7 @@ ob_start();
             <div class="col-md-6">
                 <h5 class="mb-0">
                     <i class="bi bi-list"></i>
-                    Users List
+                    <?php echo __('user_list'); ?>
                     <?php if (isset($totalUsers) && $totalUsers > 0): ?>
                     <span class="badge bg-primary ms-2"><?php echo $totalUsers; ?></span>
                     <?php endif; ?>
@@ -293,18 +294,18 @@ ob_start();
             </div>
             <div class="col-md-6">
                 <!-- Search and Filter Form -->
-                <form method="GET" class="d-flex gap-2">
+              <form method="GET" class="d-flex gap-2">
                     <input type="text" 
                            class="form-control form-control-sm" 
                            name="search" 
-                           placeholder="Search users..." 
+                   placeholder="<?php echo __('search_users'); ?>" 
                            value="<?php echo htmlspecialchars($search); ?>">
                     <select class="form-select form-select-sm" name="role" style="width: auto;">
-                        <option value="">All Roles</option>
-                        <option value="ADMIN" <?php echo $roleFilter === 'ADMIN' ? 'selected' : ''; ?>>Admin</option>
-                        <option value="DOCTOR" <?php echo $roleFilter === 'DOCTOR' ? 'selected' : ''; ?>>Doctor</option>
-                        <option value="NURSE" <?php echo $roleFilter === 'NURSE' ? 'selected' : ''; ?>>Nurse</option>
-                        <option value="RECEPTIONIST" <?php echo $roleFilter === 'RECEPTIONIST' ? 'selected' : ''; ?>>Receptionist</option>
+               <option value=""><?php echo __('all_roles'); ?></option>
+               <option value="ADMIN" <?php echo $roleFilter === 'ADMIN' ? 'selected' : ''; ?>><?php echo __('admin'); ?></option>
+               <option value="DOCTOR" <?php echo $roleFilter === 'DOCTOR' ? 'selected' : ''; ?>><?php echo __('doctor'); ?></option>
+               <option value="NURSE" <?php echo $roleFilter === 'NURSE' ? 'selected' : ''; ?>><?php echo __('nurse'); ?></option>
+               <option value="RECEPTIONIST" <?php echo $roleFilter === 'RECEPTIONIST' ? 'selected' : ''; ?>><?php echo __('receptionist'); ?></option>
                     </select>
                     <button type="submit" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-search"></i>
@@ -325,39 +326,39 @@ ob_start();
                 <thead class="table-dark">
                     <tr>
                         <th class="border-0">
-                            <i class="bi bi-hash me-1"></i>ID
+                            <i class="bi bi-hash me-1"></i><?php echo __('id'); ?>
                         </th>
                         <th class="border-0">
-                            <i class="bi bi-person me-1"></i>User
+                            <i class="bi bi-person me-1"></i><?php echo __('name'); ?>
                         </th>
                         <th class="border-0">
-                            <i class="bi bi-envelope me-1"></i>Email
+                            <i class="bi bi-envelope me-1"></i><?php echo __('email'); ?>
                         </th>
                         <th class="border-0">
-                            <i class="bi bi-shield me-1"></i>Role
+                            <i class="bi bi-shield me-1"></i><?php echo __('role'); ?>
                         </th>
                         <th class="border-0">
-                            <i class="bi bi-telephone me-1"></i>Phone
+                            <i class="bi bi-telephone me-1"></i><?php echo __('phone'); ?>
                         </th>
                         <th class="border-0">
-                            <i class="bi bi-circle me-1"></i>Status
+                            <i class="bi bi-circle me-1"></i><?php echo __('status'); ?>
                         </th>
                         <th class="border-0">
-                            <i class="bi bi-calendar-event me-1"></i>Created
+                            <i class="bi bi-calendar-event me-1"></i><?php echo __('created'); ?>
                         </th>
                         <th class="border-0 text-center">
-                            <i class="bi bi-gear me-1"></i>Actions
+                            <i class="bi bi-gear me-1"></i><?php echo __('actions'); ?>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($users)): ?>
                     <tr>
-                        <td colspan="8" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                             <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
-                            <p class="text-muted mt-2 mb-0">No users found</p>
+                            <p class="text-muted mt-2 mb-0"><?php echo __('no_users_found'); ?></p>
                             <?php if ($search || $roleFilter): ?>
-                            <small class="text-muted">Try adjusting your search criteria</small>
+                            <small class="text-muted"><?php echo __('try_adjust_search'); ?></small>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -365,7 +366,7 @@ ob_start();
                     <?php foreach ($users as $userItem): ?>
                     <?php
                     // Format date
-                    $createdDate = isset($userItem['createdAt']) ? date('M j, Y', strtotime($userItem['createdAt'])) : 'N/A';
+                    $createdDate = isset($userItem['createdAt']) ? date('M j, Y', strtotime($userItem['createdAt'])) : __('not_provided');
                     
                     // Status and role styling
                     $statusClass = getUserStatusClass($userItem['isActive'] ?? true);
@@ -385,7 +386,7 @@ ob_start();
                     ?>
                     <tr>
                         <td class="align-middle">
-                            <span class="text-monospace small"><?php echo htmlspecialchars(substr($userItem['id'] ?? 'N/A', 0, 8)); ?>...</span>
+                            <span class="text-monospace small"><?php echo htmlspecialchars(substr($userItem['id'] ?? __('not_provided'), 0, 8)); ?>...</span>
                         </td>
                         <td class="align-middle">
                             <div class="d-flex align-items-center">
@@ -396,29 +397,29 @@ ob_start();
                                     <div class="fw-bold text-dark">
                                         <?php echo htmlspecialchars($displayName); ?>
                                     </div>
-                                    <small class="text-muted">ID: <?php echo htmlspecialchars(substr($userItem['id'] ?? 'N/A', 0, 8)); ?>...</small>
+                                    <small class="text-muted"><?php echo __('id'); ?>: <?php echo htmlspecialchars(substr($userItem['id'] ?? __('not_provided'), 0, 8)); ?>...</small>
                                 </div>
                             </div>
                         </td>
                         <td class="align-middle">
-                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($userItem['email'] ?? 'N/A'); ?></div>
+                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($userItem['email'] ?? __('not_provided')); ?></div>
                             <?php if ($userItem['email'] === getCurrentUser()['email']): ?>
-                            <small class="text-primary">(You)</small>
+                            <small class="text-primary"><?php echo __('you_marker'); ?></small>
                             <?php endif; ?>
                         </td>
                         <td class="align-middle">
-                            <span class="<?php echo $roleClass; ?>"><?php echo htmlspecialchars($userItem['role'] ?? 'Unknown'); ?></span>
+                            <span class="<?php echo $roleClass; ?>"><?php echo htmlspecialchars($userItem['role'] ?? __('unknown')); ?></span>
                         </td>
                         <td class="align-middle">
                             <?php if ($phoneNumber): ?>
                             <div class="fw-bold text-dark"><?php echo htmlspecialchars($phoneNumber); ?></div>
                             <?php else: ?>
-                            <small class="text-muted">Not provided</small>
+                            <small class="text-muted"><?php echo __('not_provided'); ?></small>
                             <?php endif; ?>
                         </td>
                         <td class="align-middle">
                             <span class="<?php echo $statusClass; ?>">
-                                <?php echo ($userItem['isActive'] ?? true) ? 'Active' : 'Inactive'; ?>
+                                <?php echo ($userItem['isActive'] ?? true) ? __('active') : __('inactive'); ?>
                             </span>
                         </td>
                         <td class="align-middle">
@@ -427,31 +428,31 @@ ob_start();
                         </td>
                         <td class="align-middle text-center">
                             <div class="btn-group btn-group-sm">
-                                <a href="users.php?action=view&id=<?php echo $userItem['id']; ?>" 
-                                   class="btn btn-outline-primary btn-sm" 
-                                   title="View Details">
+                                          <a href="users.php?action=view&id=<?php echo $userItem['id']; ?>" 
+                                              class="btn btn-outline-primary btn-sm" 
+                                              title="<?php echo __('view_details'); ?>">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a href="users.php?action=edit&id=<?php echo $userItem['id']; ?>" 
-                                   class="btn btn-outline-warning btn-sm" 
-                                   title="Edit User">
+                                          <a href="users.php?action=edit&id=<?php echo $userItem['id']; ?>" 
+                                              class="btn btn-outline-warning btn-sm" 
+                                              title="<?php echo __('edit_user'); ?>">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <button type="button" 
-                                        class="btn btn-outline-info btn-sm" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#roleModal"
+                <button type="button" 
+                    class="btn btn-outline-info btn-sm" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#roleModal"
                                         data-user-id="<?php echo $userItem['id']; ?>"
                                         data-current-role="<?php echo $userItem['role'] ?? ''; ?>"
-                                        data-user-name="<?php echo htmlspecialchars($userItem['fullName'] ?? $userItem['email'] ?? 'Unknown'); ?>"
-                                        title="Change Role">
+                                        data-user-name="<?php echo htmlspecialchars($userItem['fullName'] ?? $userItem['email'] ?? __('unknown')); ?>"
+                    title="<?php echo __('change_role'); ?>">
                                     <i class="bi bi-shield"></i>
                                 </button>
                                 <?php if ($userItem['email'] !== getCurrentUser()['email']): ?>
-                                <button type="button" 
-                                        class="btn btn-outline-danger btn-sm" 
-                                        onclick="confirmDelete('<?php echo $userItem['id']; ?>', '<?php echo htmlspecialchars($userItem['fullName'] ?? $userItem['email'] ?? 'Unknown'); ?>')" 
-                                        title="Delete User">
+                <button type="button" 
+                    class="btn btn-outline-danger btn-sm" 
+                    onclick="confirmDelete('<?php echo $userItem['id']; ?>', '<?php echo addslashes($userItem['fullName'] ?? $userItem['email'] ?? __('unknown')); ?>')" 
+                    title="<?php echo __('delete_user'); ?>">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <?php endif; ?>
@@ -469,7 +470,7 @@ ob_start();
     <?php if ($pagination): ?>
     <div class="card-footer d-flex justify-content-between align-items-center">
         <div class="text-muted">
-            Showing <?php echo (($page - 1) * $limit + 1); ?> to <?php echo min($page * $limit, $totalUsers ?? 0); ?> of <?php echo $totalUsers ?? 0; ?> users
+            <?php echo sprintf(__('showing_users_range'), (($page - 1) * $limit + 1), min($page * $limit, $totalUsers ?? 0), $totalUsers ?? 0); ?>
         </div>
         <nav>
             <?php echo $pagination; ?>
@@ -486,7 +487,7 @@ ob_start();
             <div class="card-header">
                 <h5 class="mb-0">
                     <i class="bi bi-<?php echo $action === 'add' ? 'person-plus' : 'pencil'; ?>"></i>
-                    <?php echo $action === 'add' ? 'Add New User' : 'Edit User'; ?>
+                    <?php echo $action === 'add' ? __('add_user') : __('edit_user'); ?>
                 </h5>
             </div>
             
@@ -499,17 +500,17 @@ ob_start();
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="fullName" class="form-label">Full Name</label>
+                                   <label for="fullName" class="form-label"><?php echo __('full_name'); ?></label>
                             <input type="text" 
                                    class="form-control" 
                                    id="fullName" 
                                    name="fullName" 
                                    value="<?php echo $action === 'edit' ? htmlspecialchars($selectedUser['fullName'] ?? '') : ''; ?>"
-                                   placeholder="Enter full name">
+                                   placeholder="<?php echo __('enter_full_name'); ?>">
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email Address *</label>
+                            <label for="email" class="form-label"><?php echo __('email_address'); ?> *</label>
                             <input type="email" 
                                    class="form-control" 
                                    id="email" 
@@ -520,7 +521,7 @@ ob_start();
                         
                         <div class="col-md-6 mb-3">
                             <label for="password" class="form-label">
-                                Password <?php echo $action === 'add' ? '*' : '(leave blank to keep current)'; ?>
+                                <?php echo __('password'); ?> <?php echo $action === 'add' ? '*' : __('leave_blank_to_keep_current'); ?>
                             </label>
                             <input type="password" 
                                    class="form-control" 
@@ -530,42 +531,42 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="role" class="form-label">Role *</label>
+                            <label for="role" class="form-label"><?php echo __('role'); ?> *</label>
                             <select class="form-select" id="role" name="role" required>
-                                <option value="">Select a role...</option>
-                                <option value="ADMIN" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'ADMIN') ? 'selected' : ''; ?>>Admin</option>
-                                <option value="DOCTOR" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'DOCTOR') ? 'selected' : ''; ?>>Doctor</option>
-                                <option value="NURSE" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'NURSE') ? 'selected' : ''; ?>>Nurse</option>
-                                <option value="RECEPTIONIST" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'RECEPTIONIST') ? 'selected' : ''; ?>>Receptionist</option>
+                                <option value=""><?php echo __('select_role'); ?></option>
+                                <option value="ADMIN" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'ADMIN') ? 'selected' : ''; ?>><?php echo __('admin'); ?></option>
+                                <option value="DOCTOR" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'DOCTOR') ? 'selected' : ''; ?>><?php echo __('doctor'); ?></option>
+                                <option value="NURSE" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'NURSE') ? 'selected' : ''; ?>><?php echo __('nurse'); ?></option>
+                                <option value="RECEPTIONIST" <?php echo ($action === 'edit' && ($selectedUser['role'] ?? '') === 'RECEPTIONIST') ? 'selected' : ''; ?>><?php echo __('receptionist'); ?></option>
                             </select>
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="phoneNumber" class="form-label">Phone Number</label>
+                            <label for="phoneNumber" class="form-label"><?php echo __('phone_number'); ?></label>
                             <input type="tel" 
                                    class="form-control" 
                                    id="phoneNumber" 
                                    name="phoneNumber" 
                                    value="<?php echo $action === 'edit' ? htmlspecialchars($selectedUser['phoneNumber'] ?? '') : ''; ?>"
-                                   placeholder="Enter phone number">
+                                   placeholder="<?php echo __('enter_phone_number'); ?>">
                         </div>
                         
                         <div class="col-12 mb-3">
-                            <label for="address" class="form-label">Address</label>
+                            <label for="address" class="form-label"><?php echo __('address'); ?></label>
                             <textarea class="form-control" 
                                       id="address" 
                                       name="address" 
                                       rows="3" 
-                                      placeholder="Enter address..."><?php echo $action === 'edit' ? htmlspecialchars($selectedUser['address'] ?? '') : ''; ?></textarea>
+                                      placeholder="<?php echo __('enter_address'); ?>"><?php echo $action === 'edit' ? htmlspecialchars($selectedUser['address'] ?? '') : ''; ?></textarea>
                         </div>
                     </div>
                     
                     <div class="d-flex justify-content-end gap-2">
-                        <a href="users.php" class="btn btn-outline-secondary">
-                            <i class="bi bi-x"></i> Cancel
+                            <a href="users.php" class="btn btn-outline-secondary">
+                            <i class="bi bi-x"></i> <?php echo __('cancel'); ?>
                         </a>
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check"></i> <?php echo $action === 'add' ? 'Create User' : 'Update User'; ?>
+                            <i class="bi bi-check"></i> <?php echo $action === 'add' ? __('create_user') : __('update_user'); ?>
                         </button>
                     </div>
                 </form>
@@ -583,14 +584,14 @@ ob_start();
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="bi bi-person"></i>
-                        User Details
+                        <?php echo __('user_details'); ?>
                     </h5>
                     <div>
                         <a href="users.php?action=edit&id=<?php echo $selectedUser['id']; ?>" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-pencil"></i> Edit
+                            <i class="bi bi-pencil"></i> <?php echo __('edit'); ?>
                         </a>
                         <a href="users.php" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-arrow-left"></i> Back to List
+                            <i class="bi bi-arrow-left"></i> <?php echo __('back_to_list'); ?>
                         </a>
                     </div>
                 </div>
@@ -599,48 +600,48 @@ ob_start();
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">User ID</label>
+                        <label class="form-label text-muted"><?php echo __('user_id_label'); ?></label>
                         <p class="fw-bold text-monospace"><?php echo htmlspecialchars($selectedUser['id']); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Status</label>
-                        <p><span class="<?php echo getUserStatusClass($selectedUser['isActive'] ?? true); ?>"><?php echo ($selectedUser['isActive'] ?? true) ? 'Active' : 'Inactive'; ?></span></p>
+                        <label class="form-label text-muted"><?php echo __('status'); ?></label>
+                        <p><span class="<?php echo getUserStatusClass($selectedUser['isActive'] ?? true); ?>"><?php echo ($selectedUser['isActive'] ?? true) ? __('active') : __('inactive'); ?></span></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Full Name</label>
-                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['fullName'] ?? 'Not provided'); ?></p>
+                        <label class="form-label text-muted"><?php echo __('full_name'); ?></label>
+                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['fullName'] ?? __('not_provided')); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Email Address</label>
-                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['email'] ?? 'N/A'); ?></p>
+                        <label class="form-label text-muted"><?php echo __('email_address'); ?></label>
+                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['email'] ?? __('not_provided')); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Role</label>
-                        <p><span class="<?php echo getRoleClass($selectedUser['role'] ?? ''); ?>"><?php echo htmlspecialchars($selectedUser['role'] ?? 'Unknown'); ?></span></p>
+                        <label class="form-label text-muted"><?php echo __('role'); ?></label>
+                        <p><span class="<?php echo getRoleClass($selectedUser['role'] ?? ''); ?>"><?php echo htmlspecialchars($selectedUser['role'] ?? __('unknown')); ?></span></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Phone Number</label>
-                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['phoneNumber'] ?? 'Not provided'); ?></p>
+                        <label class="form-label text-muted"><?php echo __('phone_number'); ?></label>
+                        <p class="fw-bold"><?php echo htmlspecialchars($selectedUser['phoneNumber'] ?? __('not_provided')); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Created Date</label>
-                        <p class="fw-bold"><?php echo isset($selectedUser['createdAt']) ? date('l, F j, Y \a\t H:i', strtotime($selectedUser['createdAt'])) : 'N/A'; ?></p>
+                        <label class="form-label text-muted"><?php echo __('created'); ?></label>
+                        <p class="fw-bold"><?php echo isset($selectedUser['createdAt']) ? date('l, F j, Y \a\t H:i', strtotime($selectedUser['createdAt'])) : __('not_provided'); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Last Updated</label>
-                        <p class="fw-bold"><?php echo isset($selectedUser['updatedAt']) ? date('l, F j, Y \a\t H:i', strtotime($selectedUser['updatedAt'])) : 'N/A'; ?></p>
+                        <label class="form-label text-muted"><?php echo __('updated'); ?></label>
+                        <p class="fw-bold"><?php echo isset($selectedUser['updatedAt']) ? date('l, F j, Y \a\t H:i', strtotime($selectedUser['updatedAt'])) : __('not_provided'); ?></p>
                     </div>
                     
                     <?php if ($selectedUser['address'] ?? false): ?>
                     <div class="col-12 mb-3">
-                        <label class="form-label text-muted">Address</label>
+                        <label class="form-label text-muted"><?php echo __('address'); ?></label>
                         <div class="card bg-light">
                             <div class="card-body">
                                 <p class="mb-0"><?php echo nl2br(htmlspecialchars($selectedUser['address'])); ?></p>
@@ -658,11 +659,11 @@ ob_start();
                             data-bs-target="#roleModal"
                             data-user-id="<?php echo $selectedUser['id']; ?>"
                             data-current-role="<?php echo $selectedUser['role'] ?? ''; ?>"
-                            data-user-name="<?php echo htmlspecialchars($selectedUser['fullName'] ?? $selectedUser['email'] ?? 'Unknown'); ?>">
-                        <i class="bi bi-shield"></i> Change Role
+                            data-user-name="<?php echo htmlspecialchars($selectedUser['fullName'] ?? $selectedUser['email'] ?? __('unknown')); ?>">
+                        <i class="bi bi-shield"></i> <?php echo __('change_role'); ?>
                     </button>
                     <a href="users.php?action=edit&id=<?php echo $selectedUser['id']; ?>" class="btn btn-primary">
-                        <i class="bi bi-pencil"></i> Edit User
+                        <i class="bi bi-pencil"></i> <?php echo __('edit_user'); ?>
                     </a>
                 </div>
             </div>
@@ -677,10 +678,10 @@ ob_start();
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="bi bi-person-x text-muted" style="font-size: 4rem;"></i>
-                <h3 class="mt-3 text-muted">User Not Found</h3>
-                <p class="text-muted">The user you're looking for could not be found.</p>
+                    <h3 class="mt-3 text-muted"><?php echo __('user_not_found'); ?></h3>
+                <p class="text-muted"><?php echo __('user_not_found_message'); ?></p>
                 <a href="users.php" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Back to Users List
+                    <i class="bi bi-arrow-left"></i> <?php echo __('back_to_users_list'); ?>
                 </a>
             </div>
         </div>
@@ -695,28 +696,28 @@ ob_start();
         <div class="modal-content">
             <form method="POST" action="users.php?action=update_role">
                 <div class="modal-header">
-                    <h5 class="modal-title">Change User Role</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title"><?php echo __('change_role'); ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="csrf_token" value="<?php echo getCsrfToken(); ?>">
                     <input type="hidden" name="user_id" id="modalUserId">
                     
-                    <p>Change role for <strong id="modalUserName"></strong>:</p>
+                    <p><?php echo __('change_role_for'); ?> <strong id="modalUserName"></strong>:</p>
                     
                     <div class="mb-3">
-                        <label for="modalRole" class="form-label">New Role</label>
+                        <label for="modalRole" class="form-label"><?php echo __('new_role'); ?></label>
                         <select class="form-select" id="modalRole" name="role" required>
-                            <option value="ADMIN">Admin</option>
-                            <option value="DOCTOR">Doctor</option>
-                            <option value="NURSE">Nurse</option>
-                            <option value="RECEPTIONIST">Receptionist</option>
+                            <option value="ADMIN"><?php echo __('admin'); ?></option>
+                            <option value="DOCTOR"><?php echo __('doctor'); ?></option>
+                            <option value="NURSE"><?php echo __('nurse'); ?></option>
+                            <option value="RECEPTIONIST"><?php echo __('receptionist'); ?></option>
                         </select>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Role</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('cancel'); ?></button>
+                    <button type="submit" class="btn btn-primary"><?php echo __('update_role'); ?></button>
                 </div>
             </form>
         </div>
@@ -728,16 +729,16 @@ ob_start();
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><?php echo __('delete_confirmation'); ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete user <strong id="deleteUserName"></strong>?</p>
-                <p class="text-danger"><small>This action cannot be undone.</small></p>
+                <p><?php echo __('are_you_sure'); ?> <strong id="deleteUserName"></strong>?</p>
+                <p class="text-danger"><small><?php echo __('action_cannot_undone'); ?></small></p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete User</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('cancel'); ?></button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger"><?php echo __('delete_user'); ?></a>
             </div>
         </div>
     </div>

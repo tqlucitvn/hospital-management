@@ -1,10 +1,11 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 
 // Require authentication
 requireAuth();
 
-$pageTitle = 'Dashboard';
+$pageTitle = __('dashboard');
 $user = getCurrentUser();
 
 // Initialize stats
@@ -71,7 +72,7 @@ try {
             $response = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
             
             if ($debugMode) {
-                echo "<div class='alert alert-info'>Patient API Response: " . json_encode($response) . "</div>";
+                echo "<div class='alert alert-info'>" . addslashes(__('debug_info')) . ": " . json_encode($response) . "</div>";
             }
             
             if ($response['status_code'] === 200 && isset($response['data'])) {
@@ -104,8 +105,8 @@ try {
                 foreach ($recentPatients as $patient) {
                     $recentActivities[] = [
                         'type' => 'patient',
-                        'message' => 'New patient registered: ' . ($patient['fullName'] ?? 'Unknown'),
-                        'time' => isset($patient['createdAt']) ? formatDate($patient['createdAt']) : 'Recently',
+                        'message' => sprintf(__('new_patient_registered'), ($patient['fullName'] ?? __('unknown'))),
+                        'time' => isset($patient['createdAt']) ? formatDate($patient['createdAt']) : __('recently'),
                         'icon' => 'person-plus',
                         'color' => 'success'
                     ];
@@ -124,7 +125,7 @@ try {
         $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', $appointmentFilter, $token);
         
         if ($debugMode) {
-            echo "<div class='alert alert-info'>Appointment API Response: " . json_encode($response) . "</div>";
+            echo "<div class='alert alert-info'>" . addslashes(__('debug_info')) . ": " . json_encode($response) . "</div>";
         }
         
         if ($response['status_code'] === 200 && is_array($response['data'])) {
@@ -207,7 +208,7 @@ try {
         $response = makeApiCall(PRESCRIPTION_SERVICE_URL, 'GET', null, $token);
         
         if ($debugMode) {
-            echo "<div class='alert alert-info'>Prescription API Response: " . json_encode($response) . "</div>";
+            echo "<div class='alert alert-info'>" . addslashes(__('debug_info')) . ": " . json_encode($response) . "</div>";
         }
         
         if ($response['status_code'] === 200 && is_array($response['data'])) {
@@ -229,7 +230,7 @@ try {
         $response = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
         
         if ($debugMode) {
-            echo "<div class='alert alert-info'>User API Response: " . json_encode($response) . "</div>";
+            echo "<div class='alert alert-info'>" . addslashes(__('debug_info')) . ": " . json_encode($response) . "</div>";
         }
         
         if ($response['status_code'] === 200 && is_array($response['data'])) {
@@ -259,14 +260,14 @@ ob_start();
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="h3 mb-1">Welcome back, <?php echo sanitize($user['fullName'] ?? $user['email'] ?? 'User'); ?>! 👋</h1>
+                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_user'), sanitize($user['fullName'] ?? $user['email'] ?? __('user'))); ?> 👋</h1>
                 <p class="text-muted mb-0">
                     <?php echo getRoleDisplayName($user['role'] ?? 'USER'); ?> • 
-                    Today is <?php echo date('l, F j, Y'); ?>
+                    <?php echo sprintf(__('today_is'), date('l, F j, Y')); ?>
                 </p>
             </div>
             <div class="text-end">
-                <small class="text-muted">Last login: <?php echo isset($_SESSION['login_time']) ? date('M j, Y H:i', $_SESSION['login_time']) : 'N/A'; ?></small>
+                <small class="text-muted"><?php echo isset($_SESSION['login_time']) ? sprintf(__('last_login'), date('M j, Y H:i', $_SESSION['login_time'])) : __('not_provided'); ?></small>
             </div>
         </div>
     </div>
@@ -282,14 +283,14 @@ ob_start();
                 <div class="row">
                     <div class="col">
                         <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                            Total Patients
+                            <?php echo __('total_patients'); ?>
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
                             <?php echo number_format($stats['patients']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-arrow-up text-success"></i>
-                            <?php echo $stats['patients']['today'] ?? 0; ?> new today
+                            <?php echo $stats['patients']['today'] ?? 0; ?> <?php echo __('new_today'); ?>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -309,14 +310,14 @@ ob_start();
                 <div class="row">
                     <div class="col">
                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                            Appointments
+                            <?php echo __('appointments'); ?>
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
                             <?php echo number_format($stats['appointments']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-clock text-warning"></i>
-                            <?php echo $stats['appointments']['pending'] ?? 0; ?> pending
+                            <?php echo $stats['appointments']['pending'] ?? 0; ?> <?php echo __('pending'); ?>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -336,14 +337,14 @@ ob_start();
                 <div class="row">
                     <div class="col">
                         <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                            Prescriptions
+                            <?php echo __('prescriptions'); ?>
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
                             <?php echo number_format($stats['prescriptions']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-hourglass text-warning"></i>
-                            <?php echo $stats['prescriptions']['pending'] ?? 0; ?> pending
+                            <?php echo $stats['prescriptions']['pending'] ?? 0; ?> <?php echo __('pending'); ?>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -363,14 +364,14 @@ ob_start();
                 <div class="row">
                     <div class="col">
                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                            System Users
+                            <?php echo __('system_users'); ?>
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
                             <?php echo number_format($stats['users']['total'] ?? 0); ?>
                         </div>
                         <div class="text-xs text-muted mt-1">
                             <i class="bi bi-shield-check text-success"></i>
-                            Active accounts
+                            <?php echo __('active_accounts'); ?>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -390,7 +391,7 @@ ob_start();
             <div class="card-header">
                 <h6 class="m-0 font-weight-bold">
                     <i class="bi bi-lightning"></i>
-                    Quick Actions
+                    <?php echo __('quick_actions'); ?>
                 </h6>
             </div>
             <div class="card-body">
@@ -398,33 +399,33 @@ ob_start();
                     <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
                     <a href="patients.php?action=add" class="btn btn-outline-primary">
                         <i class="bi bi-person-plus"></i>
-                        Add New Patient
+                        <?php echo __('add_new_patient'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST', 'DOCTOR'])): ?>
                     <a href="appointments.php?action=add" class="btn btn-outline-success">
                         <i class="bi bi-calendar-plus"></i>
-                        Schedule Appointment
+                        <?php echo __('schedule_appointment'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (hasAnyRole(['ADMIN', 'DOCTOR'])): ?>
                     <a href="prescriptions.php?action=add" class="btn btn-outline-info">
                         <i class="bi bi-prescription"></i>
-                        Create Prescription
+                        <?php echo __('create_prescription'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (hasRole('ADMIN')): ?>
                     <a href="users.php?action=add" class="btn btn-outline-warning">
                         <i class="bi bi-person-gear"></i>
-                        Add User
+                        <?php echo __('add_user'); ?>
                     </a>
                     
                     <a href="reports.php" class="btn btn-outline-secondary">
                         <i class="bi bi-graph-up"></i>
-                        View Reports
+                        <?php echo __('view_reports'); ?>
                     </a>
                     <?php endif; ?>
                 </div>
@@ -438,14 +439,14 @@ ob_start();
             <div class="card-header">
                 <h6 class="m-0 font-weight-bold">
                     <i class="bi bi-activity"></i>
-                    Recent Activities
+                    <?php echo __('recent_activities'); ?>
                 </h6>
             </div>
             <div class="card-body">
                 <?php if (empty($recentActivities)): ?>
                     <div class="text-center text-muted py-4">
                         <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                        <p class="mt-2 mb-0">No recent activities</p>
+                        <p class="mt-2 mb-0"><?php echo __('no_recent_activities'); ?></p>
                     </div>
                 <?php else: ?>
                     <div class="activity-feed">
@@ -462,7 +463,7 @@ ob_start();
                         <?php endforeach; ?>
                     </div>
                     <div class="text-center">
-                        <a href="#" class="btn btn-sm btn-outline-primary">View All Activities</a>
+                        <a href="#" class="btn btn-sm btn-outline-primary"><?php echo __('view_all_activities'); ?></a>
                     </div>
                 <?php endif; ?>
             </div>
@@ -475,50 +476,50 @@ ob_start();
             <div class="card-header">
                 <h6 class="m-0 font-weight-bold">
                     <i class="bi bi-calendar2-week"></i>
-                    Tomorrow's Appointments
+                    <?php echo __('tomorrow_appointments'); ?>
                 </h6>
             </div>
             <div class="card-body">
                 <?php if (empty($upcomingAppointments)): ?>
                     <div class="text-center text-muted py-4">
                         <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
-                        <p class="mt-2 mb-0">No appointments tomorrow</p>
+                        <p class="mt-2 mb-0"><?php echo __('no_appointments_tomorrow'); ?></p>
                     </div>
                 <?php else: ?>
                     <div class="appointments-list">
                         <?php foreach ($upcomingAppointments as $appointment): ?>
                         <div class="appointment-item d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
                             <div>
-                                <div class="fw-bold"><?php echo formatDate($appointment['startTime'] ?? $appointment['createdAt'] ?? 'N/A'); ?></div>
-                                <small class="text-muted">
-                                    Patient: <?php 
+                                <div class="fw-bold"><?php echo formatDate($appointment['startTime'] ?? $appointment['createdAt'] ?? null); ?></div>
+                <small class="text-muted">
+                    <?php echo __('patient'); ?>: <?php 
                                         if (isset($appointment['patient']['fullName'])) {
                                             echo sanitize($appointment['patient']['fullName']);
                                         } elseif (isset($appointment['patientId'])) {
-                                            echo "ID: " . substr($appointment['patientId'], 0, 8) . "...";
+                        echo __('patient_id_label') . ": " . substr($appointment['patientId'], 0, 8) . "...";
                                         } else {
-                                            echo 'N/A';
+                        echo __('not_provided');
                                         }
                                     ?><br>
-                                    Doctor: <?php 
+                    <?php echo __('doctor'); ?>: <?php 
                                         if (isset($appointment['doctor']['fullName'])) {
                                             echo sanitize($appointment['doctor']['fullName']);
                                         } elseif (isset($appointment['doctorId'])) {
-                                            echo "ID: " . substr($appointment['doctorId'], 0, 8) . "...";
+                        echo __('doctor_id_label') . ": " . substr($appointment['doctorId'], 0, 8) . "...";
                                         } else {
-                                            echo 'N/A';
+                        echo __('not_provided');
                                         }
                                     ?>
                                 </small>
                             </div>
                             <span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>">
-                                <?php echo ucfirst(strtolower($appointment['status'] ?? 'Unknown')); ?>
+                                <?php echo ucfirst(strtolower($appointment['status'] ?? __('unknown'))); ?>
                             </span>
                         </div>
                         <?php endforeach; ?>
                     </div>
                     <div class="text-center">
-                        <a href="appointments.php" class="btn btn-sm btn-outline-primary">View All Appointments</a>
+                        <a href="appointments.php" class="btn btn-sm btn-outline-primary"><?php echo __('view_all_appointments'); ?></a>
                     </div>
                 <?php endif; ?>
             </div>
@@ -535,7 +536,7 @@ ob_start();
             <div class="card-header">
                 <h6 class="m-0 font-weight-bold">
                     <i class="bi bi-gear"></i>
-                    System Administration
+                    <?php echo __('system_administration'); ?>
                 </h6>
             </div>
             <div class="card-body">
@@ -543,29 +544,29 @@ ob_start();
                     <div class="col-md-3">
                         <div class="text-center p-3">
                             <i class="bi bi-database text-primary" style="font-size: 2rem;"></i>
-                            <h6 class="mt-2">Database Status</h6>
-                            <span class="badge bg-success">Healthy</span>
+                            <h6 class="mt-2"><?php echo __('database_status'); ?></h6>
+                            <span class="badge bg-success"><?php echo __("healthy"); ?></span>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-center p-3">
                             <i class="bi bi-server text-info" style="font-size: 2rem;"></i>
-                            <h6 class="mt-2">Services</h6>
-                            <span class="badge bg-success">All Online</span>
+                            <h6 class="mt-2"><?php echo __("services"); ?></h6>
+                            <span class="badge bg-success"><?php echo __('all_online'); ?></span>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-center p-3">
                             <i class="bi bi-shield-check text-success" style="font-size: 2rem;"></i>
-                            <h6 class="mt-2">Security</h6>
-                            <span class="badge bg-success">Secure</span>
+                            <h6 class="mt-2"><?php echo __("security"); ?></h6>
+                            <span class="badge bg-success"><?php echo __("secure"); ?></span>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-center p-3">
                             <i class="bi bi-speedometer2 text-warning" style="font-size: 2rem;"></i>
-                            <h6 class="mt-2">Performance</h6>
-                            <span class="badge bg-warning">Good</span>
+                            <h6 class="mt-2"><?php echo __("performance"); ?></h6>
+                            <span class="badge bg-warning"><?php echo __("good"); ?></span>
                         </div>
                     </div>
                 </div>

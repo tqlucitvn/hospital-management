@@ -7,6 +7,7 @@
 if (!function_exists('getCurrentUser')) {
     require_once __DIR__ . '/config.php';
 }
+require_once __DIR__ . '/language.php';
 
 $user = getCurrentUser();
 $currentLanguage = getCurrentLanguage();
@@ -16,7 +17,7 @@ $currentLanguage = getCurrentLanguage();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo __('auth.title'); ?></title>
+    <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo __('hospital_subtitle'); ?></title>
     
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -125,8 +126,8 @@ $currentLanguage = getCurrentLanguage();
     <nav class="sidebar" id="sidebar">
         <div class="brand">
             <i class="bi bi-hospital" style="font-size: 2rem; color: white; margin-bottom: 0.5rem;"></i>
-            <h3>HMS</h3>
-            <small style="color: rgba(255, 255, 255, 0.7);"><?php echo __('auth.title'); ?></small>
+            <h3><?php echo __('site_short'); ?></h3>
+            <small style="color: rgba(255, 255, 255, 0.7);"><?php echo __('hospital_subtitle'); ?></small>
         </div>
         
         <ul class="nav flex-column">
@@ -134,7 +135,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" 
                    href="dashboard.php">
                     <i class="bi bi-speedometer2"></i>
-                    <?php echo __('nav.dashboard'); ?>
+                    <?php echo __('dashboard'); ?>
                 </a>
             </li>
             
@@ -143,7 +144,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'patients.php' ? 'active' : ''; ?>" 
                    href="patients.php">
                     <i class="bi bi-people"></i>
-                    <?php echo __('nav.patients'); ?>
+                    <?php echo __('patients'); ?>
                 </a>
             </li>
             <?php endif; ?>
@@ -153,7 +154,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'appointments.php' ? 'active' : ''; ?>" 
                    href="appointments.php">
                     <i class="bi bi-calendar-check"></i>
-                    <?php echo __('nav.appointments'); ?>
+                    <?php echo __('appointments'); ?>
                 </a>
             </li>
             <?php endif; ?>
@@ -163,7 +164,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'prescriptions.php' ? 'active' : ''; ?>" 
                    href="prescriptions.php">
                     <i class="bi bi-capsule"></i>
-                    <?php echo __('nav.prescriptions'); ?>
+                    <?php echo __('prescriptions'); ?>
                 </a>
             </li>
             <?php endif; ?>
@@ -173,7 +174,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>" 
                    href="users.php">
                     <i class="bi bi-person-badge"></i>
-                    <?php echo __('nav.users'); ?>
+                    <?php echo __('users'); ?>
                 </a>
             </li>
             <?php endif; ?>
@@ -182,7 +183,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>" 
                    href="reports.php">
                     <i class="bi bi-bar-chart"></i>
-                    <?php echo __('nav.reports'); ?>
+                    <?php echo __('reports'); ?>
                 </a>
             </li>
             
@@ -190,7 +191,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'notifications.php' ? 'active' : ''; ?>" 
                    href="notifications.php">
                     <i class="bi bi-bell"></i>
-                    <?php echo __('nav.notifications'); ?>
+                    <?php echo __('notifications'); ?>
                 </a>
             </li>
             
@@ -199,7 +200,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'system-status.php' ? 'active' : ''; ?>" 
                    href="system-status.php">
                     <i class="bi bi-activity"></i>
-                    <?php echo __('nav.system_status'); ?>
+                    <?php echo __('system_status'); ?>
                 </a>
             </li>
             <?php endif; ?>
@@ -208,7 +209,7 @@ $currentLanguage = getCurrentLanguage();
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" 
                    href="settings.php">
                     <i class="bi bi-gear"></i>
-                    <?php echo __('nav.settings'); ?>
+                    <?php echo __('settings'); ?>
                 </a>
             </li>
         </ul>
@@ -222,7 +223,7 @@ $currentLanguage = getCurrentLanguage();
                 <i class="bi bi-list"></i>
             </button>
             
-            <h4 class="mb-0 ms-3 ms-md-0"><?php echo isset($pageTitle) ? $pageTitle : __('nav.dashboard'); ?></h4>
+            <h4 class="mb-0 ms-3 ms-md-0"><?php echo isset($pageTitle) ? $pageTitle : __('dashboard'); ?></h4>
             
             <div class="ms-auto d-flex align-items-center">
                 <!-- Language Switcher -->
@@ -237,15 +238,15 @@ $currentLanguage = getCurrentLanguage();
                         <i class="bi bi-bell"></i>
                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                             3
-                            <span class="visually-hidden">unread messages</span>
+                            <span class="visually-hidden"><?php echo __('unread_messages'); ?></span>
                         </span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown">
-                        <li><h6 class="dropdown-header"><?php echo __('nav.notifications'); ?></h6></li>
-                        <li><a class="dropdown-item" href="#">Sample notification 1</a></li>
-                        <li><a class="dropdown-item" href="#">Sample notification 2</a></li>
+                        <li><h6 class="dropdown-header"><?php echo __('notifications'); ?></h6></li>
+                        <li><a class="dropdown-item" href="#"><?php echo __('sample_notification_1'); ?></a></li>
+                        <li><a class="dropdown-item" href="#"><?php echo __('sample_notification_2'); ?></a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="notifications.php"><?php echo __('common.view') . ' ' . __('common.all'); ?></a></li>
+                        <li><a class="dropdown-item" href="notifications.php"><?php echo __('view_all'); ?></a></li>
                     </ul>
                 </div>
                 
@@ -254,20 +255,20 @@ $currentLanguage = getCurrentLanguage();
                     <button class="btn btn-outline-secondary dropdown-toggle user-menu" type="button" 
                             id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle"></i>
-                        <?php echo htmlspecialchars($user['fullName'] ?? $user['email'] ?? 'User'); ?>
+                        <?php echo htmlspecialchars($user['fullName'] ?? $user['email'] ?? __('user')); ?>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuDropdown">
                         <li>
                             <a class="dropdown-item" href="profile.php">
                                 <i class="bi bi-person"></i>
-                                <?php echo __('nav.profile'); ?>
+                                <?php echo __('profile'); ?>
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger" href="logout.php">
                                 <i class="bi bi-box-arrow-right"></i>
-                                <?php echo __('common.logout'); ?>
+                                <?php echo __('logout'); ?>
                             </a>
                         </li>
                     </ul>
@@ -278,11 +279,21 @@ $currentLanguage = getCurrentLanguage();
         <!-- Page Content -->
         <div class="container-fluid px-4">
             <?php if (isset($_SESSION['flash_message'])): ?>
-                <div class="alert alert-<?php echo $_SESSION['flash_type'] ?? 'info'; ?> alert-dismissible fade show" role="alert">
-                    <?php 
-                    echo $_SESSION['flash_message'];
-                    unset($_SESSION['flash_message'], $_SESSION['flash_type']);
-                    ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <?php
+                    // Normalize flash message: accept string or ['message'=>..., 'type'=>...]
+                    $__flash = $_SESSION['flash_message'];
+                    $__flash_type = $_SESSION['flash_type'] ?? null;
+                    if (is_array($__flash)) {
+                        $flash_message_text = $__flash['message'] ?? '';
+                        $flash_message_type = $__flash['type'] ?? $__flash_type ?? 'info';
+                    } else {
+                        $flash_message_text = $__flash;
+                        $flash_message_type = $__flash_type ?? 'info';
+                    }
+                ?>
+                <div class="alert alert-<?php echo htmlspecialchars($flash_message_type); ?> alert-dismissible fade show" role="alert">
+                    <?php echo htmlspecialchars($flash_message_text); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
                 </div>
+                <?php unset($_SESSION['flash_message'], $_SESSION['flash_type']); ?>
             <?php endif; ?>

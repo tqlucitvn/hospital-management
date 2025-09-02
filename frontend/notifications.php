@@ -1,58 +1,59 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 requireAuth();
 
-$pageTitle = 'Notifications';
+$pageTitle = __('notifications');
 $user = getCurrentUser();
 
 // Get notifications (mock data for now - in real system would be from database)
-$notifications = [
-    [
+    $notifications = [
+        [
         'id' => 1,
         'type' => 'appointment',
-        'title' => 'New Appointment Scheduled',
-        'message' => 'Appointment scheduled for John Doe at 2:00 PM today',
-        'time' => '2 minutes ago',
+        'title' => __('new_appointment_scheduled'),
+    'message' => sprintf(__('appointment_scheduled_for'), 'John Doe', '2:00 PM today'),
+    'time' => sprintf(__('minutes_ago'), 2),
         'read' => false,
         'icon' => 'calendar-check',
         'color' => 'success'
     ],
-    [
+        [
         'id' => 2,
         'type' => 'prescription',
-        'title' => 'Prescription Ready',
-        'message' => 'Prescription #12345 is ready for pickup',
-        'time' => '15 minutes ago',
+        'title' => __('prescription_ready'),
+    'message' => sprintf(__('prescription_ready_message'), '12345'),
+        'time' => sprintf(__('minutes_ago'), 15),
         'read' => false,
         'icon' => 'prescription2',
         'color' => 'info'
     ],
-    [
+        [
         'id' => 3,
         'type' => 'patient',
-        'title' => 'New Patient Registration',
-        'message' => 'Jane Smith has been registered as a new patient',
-        'time' => '1 hour ago',
+        'title' => __('new_patient_registration'),
+    'message' => sprintf(__('new_patient_registered'), 'Jane Smith'),
+        'time' => sprintf(__('hours_ago'), 1),
         'read' => true,
         'icon' => 'person-plus',
         'color' => 'primary'
     ],
-    [
+        [
         'id' => 4,
         'type' => 'system',
-        'title' => 'System Maintenance',
-        'message' => 'Scheduled maintenance will occur tonight at 2:00 AM',
-        'time' => '3 hours ago',
+        'title' => __('system_maintenance'),
+    'message' => sprintf(__('scheduled_maintenance_time'), 'tonight at 2:00 AM'),
+        'time' => sprintf(__('hours_ago'), 3),
         'read' => true,
         'icon' => 'gear',
         'color' => 'warning'
     ],
-    [
+        [
         'id' => 5,
         'type' => 'appointment',
-        'title' => 'Appointment Cancelled',
-        'message' => 'Dr. Smith appointment at 10:00 AM has been cancelled',
-        'time' => '1 day ago',
+        'title' => __('appointment_cancelled'),
+    'message' => sprintf(__('appointment_cancelled_message'), 'Smith', '10:00 AM'),
+        'time' => sprintf(__('days_ago'), 1),
         'read' => true,
         'icon' => 'calendar-x',
         'color' => 'danger'
@@ -70,14 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 break;
             }
         }
-        header('Location: notifications.php?success=Notification marked as read');
+    header('Location: notifications.php?success=' . urlencode(__('notification_marked_read')));
         exit();
     } elseif ($_POST['action'] === 'mark_all_read') {
         // Mark all as read
         foreach ($notifications as &$notification) {
             $notification['read'] = true;
         }
-        header('Location: notifications.php?success=All notifications marked as read');
+    header('Location: notifications.php?success=' . urlencode(__('all_notifications_marked_read')));
         exit();
     }
 }
@@ -93,13 +94,13 @@ ob_start();
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 text-gray-800">
             <i class="bi bi-bell"></i>
-            Notifications
+            <?php echo __('notifications'); ?>
         </h1>
         <div>
             <form method="POST" style="display: inline;">
                 <input type="hidden" name="action" value="mark_all_read">
                 <button type="submit" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-check-all"></i> Mark All as Read
+                    <i class="bi bi-check-all"></i> <?php echo __('mark_all_as_read'); ?>
                 </button>
             </form>
         </div>
@@ -109,7 +110,7 @@ ob_start();
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             <i class="bi bi-check-circle"></i>
             <?php echo htmlspecialchars($success); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
         </div>
     <?php endif; ?>
 
@@ -121,8 +122,8 @@ ob_start();
                     <div class="row">
                         <div class="col">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total Notifications
-                            </div>
+                                                <?php echo __('total_notifications'); ?>
+                                            </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
                                 <?php echo count($notifications); ?>
                             </div>
@@ -140,7 +141,7 @@ ob_start();
                     <div class="row">
                         <div class="col">
                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Unread Notifications
+                                <?php echo __('unread_notifications'); ?>
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
                                 <?php echo count(array_filter($notifications, fn($n) => !$n['read'])); ?>
@@ -160,14 +161,14 @@ ob_start();
         <div class="card-header">
             <h6 class="m-0 font-weight-bold text-primary">
                 <i class="bi bi-list"></i>
-                All Notifications
+                <?php echo __('all_notifications'); ?>
             </h6>
         </div>
         <div class="card-body p-0">
             <?php if (empty($notifications)): ?>
                 <div class="text-center py-5">
                     <i class="bi bi-bell text-muted" style="font-size: 3rem;"></i>
-                    <p class="text-muted mt-3">No notifications available.</p>
+                    <p class="text-muted mt-3"><?php echo __('no_notifications_available'); ?></p>
                 </div>
             <?php else: ?>
                 <div class="list-group list-group-flush">
@@ -186,7 +187,7 @@ ob_start();
                                             <h6 class="mb-1 <?php echo !$notification['read'] ? 'fw-bold' : ''; ?>">
                                                 <?php echo htmlspecialchars($notification['title']); ?>
                                                 <?php if (!$notification['read']): ?>
-                                                    <span class="badge bg-primary ms-2">New</span>
+                                                    <span class="badge bg-primary ms-2"><?php echo __('new_badge'); ?></span>
                                                 <?php endif; ?>
                                             </h6>
                                             <p class="mb-1 text-muted">
@@ -208,14 +209,14 @@ ob_start();
                                                             <input type="hidden" name="action" value="mark_read">
                                                             <input type="hidden" name="notification_id" value="<?php echo $notification['id']; ?>">
                                                             <button type="submit" class="dropdown-item">
-                                                                <i class="bi bi-check"></i> Mark as Read
+                                                                <i class="bi bi-check"></i> <?php echo __('mark_as_read'); ?>
                                                             </button>
                                                         </form>
                                                     </li>
                                                 <?php endif; ?>
                                                 <li>
                                                     <a class="dropdown-item text-danger" href="#" onclick="deleteNotification(<?php echo $notification['id']; ?>)">
-                                                        <i class="bi bi-trash"></i> Delete
+                                                        <i class="bi bi-trash"></i> <?php echo __('delete'); ?>
                                                     </a>
                                                 </li>
                                             </ul>
@@ -235,9 +236,9 @@ ob_start();
         <div class="col-lg-6">
             <div class="card shadow">
                 <div class="card-header">
-                    <h6 class="m-0 font-weight-bold text-primary">
+                            <h6 class="m-0 font-weight-bold text-primary">
                         <i class="bi bi-gear"></i>
-                        Notification Settings
+                        <?php echo __('notification_settings'); ?>
                     </h6>
                 </div>
                 <div class="card-body">
@@ -245,29 +246,29 @@ ob_start();
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
                             <label class="form-check-label" for="emailNotifications">
-                                <i class="bi bi-envelope"></i> Email Notifications
+                                <i class="bi bi-envelope"></i> <?php echo __('email_notifications'); ?>
                             </label>
                         </div>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="appointmentReminders" checked>
                             <label class="form-check-label" for="appointmentReminders">
-                                <i class="bi bi-calendar-check"></i> Appointment Reminders
+                                <i class="bi bi-calendar-check"></i> <?php echo __('appointment_reminders'); ?>
                             </label>
                         </div>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="prescriptionAlerts" checked>
                             <label class="form-check-label" for="prescriptionAlerts">
-                                <i class="bi bi-prescription2"></i> Prescription Alerts
+                                <i class="bi bi-prescription2"></i> <?php echo __('prescription_alerts'); ?>
                             </label>
                         </div>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="systemUpdates">
                             <label class="form-check-label" for="systemUpdates">
-                                <i class="bi bi-gear"></i> System Updates
+                                <i class="bi bi-gear"></i> <?php echo __('system_updates'); ?>
                             </label>
                         </div>
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Save Settings
+                            <i class="bi bi-save"></i> <?php echo __('save_settings'); ?>
                         </button>
                     </form>
                 </div>
@@ -279,7 +280,7 @@ ob_start();
                 <div class="card-header">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="bi bi-info-circle"></i>
-                        Notification Types
+                        <?php echo __('notification_types'); ?>
                     </h6>
                 </div>
                 <div class="card-body">
@@ -289,7 +290,7 @@ ob_start();
                                 <div class="rounded-circle bg-success text-white me-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
                                     <i class="bi bi-calendar-check"></i>
                                 </div>
-                                <small>Appointments</small>
+                                <small><?php echo __('appointments'); ?></small>
                             </div>
                         </div>
                         <div class="col-6 mb-3">
@@ -297,7 +298,7 @@ ob_start();
                                 <div class="rounded-circle bg-info text-white me-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
                                     <i class="bi bi-prescription2"></i>
                                 </div>
-                                <small>Prescriptions</small>
+                                <small><?php echo __("prescriptions"); ?></small>
                             </div>
                         </div>
                         <div class="col-6 mb-3">
@@ -305,7 +306,7 @@ ob_start();
                                 <div class="rounded-circle bg-primary text-white me-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
                                     <i class="bi bi-person-plus"></i>
                                 </div>
-                                <small>Patient Updates</small>
+                                <small><?php echo __('patient_updates'); ?></small>
                             </div>
                         </div>
                         <div class="col-6 mb-3">
@@ -313,7 +314,7 @@ ob_start();
                                 <div class="rounded-circle bg-warning text-white me-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
                                     <i class="bi bi-gear"></i>
                                 </div>
-                                <small>System</small>
+                                <small><?php echo __('system'); ?></small>
                             </div>
                         </div>
                     </div>
@@ -325,9 +326,9 @@ ob_start();
 
 <script>
 function deleteNotification(id) {
-    if (confirm('Are you sure you want to delete this notification?')) {
+    if (confirm('<?php echo addslashes(__('are_you_sure')); ?>')) {
         // TODO: Implement delete functionality
-        alert('Delete notification #' + id + ' - functionality will be implemented');
+    alert('<?php echo addslashes(__('delete_notification_placeholder')); ?>'.replace('%s', id));
     }
 }
 

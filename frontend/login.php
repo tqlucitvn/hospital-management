@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 
 // Redirect if already logged in
 if (isLoggedIn()) {
@@ -13,13 +14,13 @@ $success = '';
 // Handle login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid CSRF token. Please try again.';
+        $error = __('error_invalid_csrf');
     } else {
         $email = sanitize($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
         if (empty($email) || empty($password)) {
-            $error = 'Please fill in all fields.';
+            $error = __('error_fill_all_fields');
         } else {
             // Call login API
             $response = makeApiCall(USER_SERVICE_URL . '/login', 'POST', [
@@ -53,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Flash success message
                         $_SESSION['flash_message'] = [
-                            'message' => 'Welcome back!',
+                            'message' => __('welcome_back'),
                             'type' => 'success'
                         ];
 
@@ -76,22 +77,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             } else {
                 // More detailed error handling
-                $errorMessage = 'Login failed';
+                $errorMessage = __('login_failed');
                 if ($response['status_code'] === 0) {
-                    $errorMessage = 'Cannot connect to server: ' . ($response['error'] ?: 'Network error');
+                    $errorMessage = __('connection_failed') . ': ' . ($response['error'] ?: __('network_error'));
                 } elseif ($response['status_code'] === 401) {
-                    $errorMessage = 'Invalid email or password';
+                    $errorMessage = __('error_invalid_credentials');
                 } elseif (isset($response['data']['error'])) {
                     $errorMessage = $response['data']['error'];
                 } elseif (isset($response['data']['message'])) {
                     $errorMessage = $response['data']['message'];
                 } else {
-                    $errorMessage = 'Server error (Status: ' . $response['status_code'] . ')';
+                    $errorMessage = sprintf(__('server_error_status'), $response['status_code']);
                 }
 
                 // Debug info
                 if (defined('DEBUG_MODE') && DEBUG_MODE) {
-                    $errorMessage .= '<br><small>Debug: ' . json_encode($response) . '</small>';
+                    $errorMessage .= '<br><small>' . addslashes(__('debug_info')) . ': ' . json_encode($response) . '</small>';
                 }
 
                 $error = $errorMessage;
@@ -100,15 +101,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Login';
+$pageTitle = __('login');
 ?>
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="<?php echo getCurrentLanguage(); ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $pageTitle; ?> - Hospital Management System</title>
+    <title><?php echo $pageTitle; ?> - <?php echo __('hospital_subtitle'); ?></title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -328,7 +329,7 @@ $pageTitle = 'Login';
     <!-- Loading Spinner -->
     <div class="spinner-overlay" id="loadingSpinner">
         <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="visually-hidden"><?php echo __('loading'); ?></span>
         </div>
     </div>
 
@@ -338,8 +339,8 @@ $pageTitle = 'Login';
                 <!-- Header -->
                 <div class="login-header">
                     <i class="bi bi-hospital" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <h1>HMS</h1>
-                    <p>Hospital Management System</p>
+                    <h1><?php echo __('site_short'); ?></h1>
+                    <p><?php echo __('hospital_subtitle'); ?></p>
                 </div>
 
                 <!-- Body -->
@@ -347,14 +348,14 @@ $pageTitle = 'Login';
                     <?php if ($error): ?>
                         <div class="alert alert-danger">
                             <i class="bi bi-exclamation-triangle"></i>
-                            <?php echo $error; ?>
+                            <?php echo htmlspecialchars($error); ?>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($success): ?>
                         <div class="alert alert-success">
                             <i class="bi bi-check-circle"></i>
-                            <?php echo $success; ?>
+                            <?php echo htmlspecialchars($success); ?>
                         </div>
                     <?php endif; ?>
 
@@ -363,10 +364,10 @@ $pageTitle = 'Login';
 
                         <!-- Email -->
                         <div class="mb-3">
-                            <label for="email" class="form-label">Email Address</label>
+                            <label for="email" class="form-label"><?php echo __('email_address'); ?></label>
                             <div class="input-group">
                                 <input type="email" class="form-control" id="email" name="email"
-                                    placeholder="Enter your email"
+                                    placeholder="<?php echo __('enter_email'); ?>"
                                     value="<?php echo isset($_POST['email']) ? sanitize($_POST['email']) : ''; ?>"
                                     required>
                                 <span class="input-group-text">
@@ -377,10 +378,10 @@ $pageTitle = 'Login';
 
                         <!-- Password -->
                         <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
+                            <label for="password" class="form-label"><?php echo __('password'); ?></label>
                             <div class="input-group">
                                 <input type="password" class="form-control" id="password" name="password"
-                                    placeholder="Enter your password" required>
+                                    placeholder="<?php echo __('enter_password'); ?>" required>
                                 <span class="input-group-text" id="togglePassword" style="cursor: pointer;">
                                     <i class="bi bi-eye" id="toggleIcon"></i>
                                 </span>
@@ -391,14 +392,14 @@ $pageTitle = 'Login';
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
                             <label class="form-check-label" for="rememberMe">
-                                Remember me
+                                <?php echo __('remember_me'); ?>
                             </label>
                         </div>
 
                         <!-- Login Button -->
                         <button type="submit" class="btn btn-primary btn-login">
                             <i class="bi bi-box-arrow-in-right"></i>
-                            Sign In
+                            <?php echo __('login'); ?>
                         </button>
                     </form>
                 </div>
@@ -407,7 +408,7 @@ $pageTitle = 'Login';
             <!-- Footer -->
             <div class="text-center mt-3">
                 <small class="text-white">
-                    © 2024 Hospital Management System. All rights reserved.
+                    © 2024 <?php echo __('hospital_subtitle'); ?>. <?php echo __('all_rights_reserved'); ?>
                 </small>
             </div>
         </div>

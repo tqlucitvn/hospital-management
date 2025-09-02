@@ -136,7 +136,7 @@ function makeApiCallFileGetContents($url, $method = 'GET', $data = null, $token 
     // Handle connection errors
     if ($response === false) {
         $error = error_get_last();
-        $errorMessage = $error ? $error['message'] : 'Connection failed';
+    $errorMessage = $error ? $error['message'] : __('connection_failed');
         
         // Log API calls for debugging (in development)
         if (defined('DEBUG_MODE') && DEBUG_MODE) {
@@ -258,7 +258,7 @@ function logout() {
  * @param string $dateString - ISO date string
  */
 function formatDate($dateString) {
-    if (!$dateString) return 'N/A';
+    if (!$dateString) return __('not_provided');
     return date('d/m/Y H:i', strtotime($dateString));
 }
 
@@ -313,7 +313,7 @@ function showAlert($message, $type = 'info') {
     echo "<div class='alert alert-{$type} alert-dismissible fade show' role='alert'>";
     echo '<i class="bi bi-' . getAlertIcon($type) . '"></i> ';
     echo sanitize($message);
-    echo '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+    echo '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="' . htmlspecialchars(__('close')) . '"></button>';
     echo '</div>';
 }
 
@@ -341,10 +341,10 @@ function getAlertIcon($type) {
  */
 function getRoleDisplayName($role) {
     $roles = [
-        'ADMIN' => 'Administrator',
-        'DOCTOR' => 'Doctor',
-        'NURSE' => 'Nurse',
-        'RECEPTIONIST' => 'Receptionist'
+        'ADMIN' => __('admin'),
+        'DOCTOR' => __('doctor'),
+        'NURSE' => __('nurse'),
+        'RECEPTIONIST' => __('receptionist')
     ];
     return $roles[$role] ?? $role;
 }
@@ -416,13 +416,13 @@ function handleApiError($response) {
 function paginate($currentPage, $totalPages, $baseUrl) {
     if ($totalPages <= 1) return '';
     
-    $pagination = '<nav aria-label="Page navigation"><ul class="pagination justify-content-center">';
+    $pagination = '<nav aria-label="' . htmlspecialchars(__('page_navigation')) . '"><ul class="pagination justify-content-center">';
     
     // Previous button
     if ($currentPage > 1) {
         $pagination .= '<li class="page-item">';
-        $pagination .= '<a class="page-link" href="' . $baseUrl . '&page=' . ($currentPage - 1) . '">';
-        $pagination .= '<i class="bi bi-chevron-left"></i> Previous</a></li>';
+    $pagination .= '<a class="page-link" href="' . $baseUrl . '&page=' . ($currentPage - 1) . '">';
+    $pagination .= '<i class="bi bi-chevron-left"></i> ' . htmlspecialchars(__('previous')) . '</a></li>';
     }
     
     // Page numbers
@@ -453,7 +453,7 @@ function paginate($currentPage, $totalPages, $baseUrl) {
     if ($currentPage < $totalPages) {
         $pagination .= '<li class="page-item">';
         $pagination .= '<a class="page-link" href="' . $baseUrl . '&page=' . ($currentPage + 1) . '">';
-        $pagination .= 'Next <i class="bi bi-chevron-right"></i></a></li>';
+        $pagination .= htmlspecialchars(__('next')) . ' <i class="bi bi-chevron-right"></i></a></li>';
     }
     
     $pagination .= '</ul></nav>';

@@ -1,10 +1,11 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 
 // Require Admin, Doctor, Nurse, or Receptionist access
 requireAnyRole(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']);
 
-$pageTitle = 'Patient Management';
+$pageTitle = __('patient_management');
 $user = getCurrentUser();
 $token = $_SESSION['token'];
 
@@ -27,7 +28,7 @@ $offset = ($page - 1) * $limit;
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid CSRF token.';
+        $error = __('invalid_csrf_token');
     } else {
         if ($action === 'add' || $action === 'edit') {
             // Create or update patient
@@ -51,11 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if ($response['status_code'] === 201) {
-                    $_SESSION['flash_message'] = ['message' => 'Patient created successfully!', 'type' => 'success'];
+                    $_SESSION['flash_message'] = ['message' => __('patient_created_success'), 'type' => 'success'];
                     header('Location: patients.php');
                     exit();
                 } else {
-                    $error = 'Failed to create patient. Status: ' . $response['status_code'];
+                    $error = sprintf(__('status_with_code'), $response['status_code']);
                     if (isset($response['data']['error'])) {
                         $error .= ' - ' . $response['data']['error'];
                     }
@@ -64,17 +65,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     // Debug info
                     if (defined('DEBUG_MODE') && DEBUG_MODE) {
-                        $error .= '<br><small>Debug: ' . json_encode($response) . '</small>';
+                        $error .= '<br><small>' . addslashes(__('debug_info')) . ': ' . json_encode($response) . '</small>';
                     }
                 }
             } else {
                 $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'PUT', $patientData, $token);
                 if ($response['status_code'] === 200) {
-                    $_SESSION['flash_message'] = ['message' => 'Patient updated successfully!', 'type' => 'success'];
+                    $_SESSION['flash_message'] = ['message' => __('patient_updated_success'), 'type' => 'success'];
                     header('Location: patients.php');
                     exit();
                 } else {
-                    $error = handleApiError($response) ?: 'Failed to update patient.';
+                    $error = handleApiError($response) ?: __('failed_to_update_patient');
                 }
             }
         }
@@ -86,14 +87,14 @@ if ($action === 'delete' && $patientId) {
     if (hasAnyRole(['ADMIN'])) { // Only admin can delete
         $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'DELETE', null, $token);
         if ($response['status_code'] === 200) {
-            $_SESSION['flash_message'] = ['message' => 'Patient deleted successfully!', 'type' => 'success'];
+            $_SESSION['flash_message'] = ['message' => __('patient_deleted_success'), 'type' => 'success'];
         } else {
-            $_SESSION['flash_message'] = ['message' => 'Failed to delete patient.', 'type' => 'danger'];
+            $_SESSION['flash_message'] = ['message' => __('failed_to_delete_patient'), 'type' => 'danger'];
         }
         header('Location: patients.php');
         exit();
     } else {
-        $error = 'Access denied. Only administrators can delete patients.';
+    $error = __('access_denied_delete_patients');
     }
 }
 
@@ -148,14 +149,14 @@ try {
                 $pagination = paginate($page, $totalPages, $baseUrl);
             }
         } else {
-            $error = handleApiError($response) ?: 'Failed to load patients.';
+            $error = handleApiError($response) ?: __('failed_to_load');
         }
     } elseif ($action === 'edit' && $patientId) {
         $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'GET', null, $token);
         if ($response['status_code'] === 200) {
             $patient = $response['data'];
         } else {
-            $error = handleApiError($response) ?: 'Patient not found.';
+            $error = handleApiError($response) ?: __('patient_not_found');
         }
     } elseif ($action === 'view' && $patientId) {
         // Handle view patient details
@@ -169,11 +170,11 @@ try {
         if ($response['status_code'] === 200) {
             $patient = $response['data'];
         } else {
-            $error = handleApiError($response) ?: 'Patient not found.';
+            $error = handleApiError($response) ?: __('patient_not_found');
         }
     }
 } catch (Exception $e) {
-    $error = 'System error: ' . $e->getMessage();
+    $error = sprintf(__('system_error_with_message'), $e->getMessage());
 }
 
 // Start output buffering for page content
@@ -185,16 +186,16 @@ ob_start();
     <div>
         <h1 class="h3 mb-1">
             <i class="bi bi-people"></i>
-            Patient Management
+            <?php echo __('patient_management'); ?>
         </h1>
-        <p class="text-muted mb-0">Manage patient records and information</p>
+        <p class="text-muted mb-0"><?php echo __('manage_patient_records'); ?></p>
     </div>
     
     <?php if ($action === 'list' && hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
     <div>
         <a href="patients.php?action=add" class="btn btn-primary">
             <i class="bi bi-person-plus"></i>
-            Add New Patient
+            <?php echo __('add_new_patient'); ?>
         </a>
     </div>
     <?php endif; ?>
@@ -203,16 +204,16 @@ ob_start();
 <?php if ($error): ?>
     <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle"></i>
-        <?php echo $error; ?>
+    <?php echo htmlspecialchars($error); ?>
         
         <!-- Debug info for development -->
         <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
         <hr>
-        <small>
-            <strong>Debug Info:</strong><br>
-            Action: <?php echo $action; ?><br>
-            Patient ID: <?php echo $patientId ?? 'N/A'; ?><br>
-            Patient Data: <?php echo $patient ? 'Found' : 'Not Found'; ?>
+            <small>
+            <strong><?php echo __('debug_info'); ?>:</strong><br>
+            <?php echo __('action'); ?>: <?php echo $action; ?><br>
+            <?php echo __('patient_id_label'); ?>: <?php echo $patientId ?? __('not_provided'); ?><br>
+            <?php echo __('patient_data_label'); ?>: <?php echo $patient ? __('found') : __('not_found'); ?>
         </small>
         <?php endif; ?>
     </div>
@@ -221,7 +222,7 @@ ob_start();
 <?php if ($success): ?>
     <div class="alert alert-success">
         <i class="bi bi-check-circle"></i>
-        <?php echo $success; ?>
+    <?php echo htmlspecialchars($success); ?>
     </div>
 <?php endif; ?>
 
@@ -231,19 +232,19 @@ ob_start();
     <div class="card-header">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h5 class="mb-0">
+                        <h5 class="mb-0">
                     <i class="bi bi-list"></i>
-                    Patient List
+                    <?php echo __('patient_list'); ?>
                 </h5>
             </div>
             <div class="col-md-6">
                 <!-- Search Form -->
                 <form method="GET" class="d-flex">
-                    <input type="text" 
-                           class="form-control form-control-sm me-2" 
-                           name="search" 
-                           placeholder="Search patients..." 
-                           value="<?php echo htmlspecialchars($search); ?>">
+              <input type="text" 
+                  class="form-control form-control-sm me-2" 
+                  name="search" 
+                  placeholder="<?php echo __('search_patients'); ?>" 
+                  value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-search"></i>
                     </button>
@@ -261,14 +262,14 @@ ob_start();
         <?php if (empty($patients)): ?>
         <div class="text-center py-5">
             <i class="bi bi-people text-muted" style="font-size: 4rem;"></i>
-            <h5 class="text-muted mt-3">No patients found</h5>
+                <h5 class="text-muted mt-3"><?php echo __("no_patients_found"); ?></h5>
             <p class="text-muted">
-                <?php echo $search ? 'Try adjusting your search criteria.' : 'Start by adding your first patient.'; ?>
+                <?php echo $search ? __('try_adjust_search') : __('start_by_adding_first_patient'); ?>
             </p>
             <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
             <a href="patients.php?action=add" class="btn btn-primary">
                 <i class="bi bi-person-plus"></i>
-                Add First Patient
+                <?php echo __('add_first_patient'); ?>
             </a>
             <?php endif; ?>
         </div>
@@ -277,11 +278,11 @@ ob_start();
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Patient Info</th>
-                        <th>Contact</th>
-                        <th>Age/Gender</th>
-                        <th>Registration Date</th>
-                        <th width="120">Actions</th>
+                        <th><?php echo __('patient_info'); ?></th>
+                        <th><?php echo __('contact'); ?></th>
+                        <th><?php echo __('age_gender'); ?></th>
+                        <th><?php echo __('registration_date'); ?></th>
+                        <th width="120"><?php echo __('actions'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -294,7 +295,7 @@ ob_start();
                                 </div>
                                 <div>
                                     <h6 class="mb-0"><?php echo sanitize($p['fullName']); ?></h6>
-                                    <small class="text-muted">ID: <?php echo sanitize($p['id']); ?></small>
+                                    <small class="text-muted"><?php echo __('id'); ?>: <?php echo sanitize($p['id']); ?></small>
                                 </div>
                             </div>
                         </td>
@@ -311,13 +312,13 @@ ob_start();
                         <td>
                             <div>
                                 <?php 
-                                $age = $p['dateOfBirth'] ? date_diff(date_create($p['dateOfBirth']), date_create('today'))->y : 'N/A';
-                                echo $age . ' years';
+                                $age = $p['dateOfBirth'] ? date_diff(date_create($p['dateOfBirth']), date_create('today'))->y : null;
+                                echo $age ? ($age . ' ' . __('years')) : __('not_provided');
                                 ?>
                             </div>
                             <div>
                                 <span class="badge <?php echo $p['gender'] === 'MALE' ? 'bg-info' : 'bg-pink'; ?>">
-                                    <?php echo ucfirst(strtolower($p['gender'])); ?>
+                                    <?php echo __(strtolower($p['gender'])); ?>
                                 </span>
                             </div>
                         </td>
@@ -328,21 +329,21 @@ ob_start();
                             <div class="btn-group btn-group-sm">
                                 <a href="patients.php?action=view&id=<?php echo $p['id']; ?>" 
                                    class="btn btn-outline-info"
-                                   title="View Details">
+                                   title="<?php echo __('view_details'); ?>">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
                                 <a href="patients.php?action=edit&id=<?php echo $p['id']; ?>" 
                                    class="btn btn-outline-primary"
-                                   title="Edit">
+                                   title="<?php echo __('edit'); ?>">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <?php endif; ?>
                                 <?php if (hasRole('ADMIN')): ?>
-                                <button type="button" 
+                                        <button type="button" 
                                         class="btn btn-outline-danger"
-                                        title="Delete"
-                                        onclick="confirmDelete('<?php echo $p['id']; ?>', '<?php echo sanitize($p['fullName']); ?>')">
+                                        title="<?php echo __('delete'); ?>"
+                                        onclick="confirmDelete('<?php echo $p['id']; ?>', '<?php echo addslashes($p['fullName']); ?>')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <?php endif; ?>
@@ -371,7 +372,7 @@ ob_start();
             <div class="card-header">
                 <h5 class="mb-0">
                     <i class="bi bi-<?php echo $action === 'add' ? 'person-plus' : 'pencil'; ?>"></i>
-                    <?php echo $action === 'add' ? 'Add New Patient' : 'Edit Patient'; ?>
+                    <?php echo $action === 'add' ? __('add_new_patient') : __('edit_patient'); ?>
                 </h5>
             </div>
             
@@ -382,11 +383,11 @@ ob_start();
                     <div class="row">
                         <!-- Personal Information -->
                         <div class="col-12">
-                            <h6 class="text-primary mb-3">Personal Information</h6>
+                            <h6 class="text-primary mb-3"><?php echo __('personal_information'); ?></h6>
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="fullName" class="form-label">Full Name *</label>
+                            <label for="fullName" class="form-label"><?php echo __('full_name'); ?> *</label>
                             <input type="text" 
                                    class="form-control" 
                                    id="fullName" 
@@ -396,7 +397,7 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email *</label>
+                            <label for="email" class="form-label"><?php echo __('email'); ?> *</label>
                             <input type="email" 
                                    class="form-control" 
                                    id="email" 
@@ -406,7 +407,7 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="phone" class="form-label">Phone Number *</label>
+                            <label for="phone" class="form-label"><?php echo __('phone_number'); ?> *</label>
                             <input type="tel" 
                                    class="form-control" 
                                    id="phone" 
@@ -416,7 +417,7 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="emergencyContact" class="form-label">Emergency Contact</label>
+                            <label for="emergencyContact" class="form-label"><?php echo __('emergency_contact'); ?></label>
                             <input type="tel" 
                                    class="form-control" 
                                    id="emergencyContact" 
@@ -425,7 +426,7 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="dateOfBirth" class="form-label">Date of Birth *</label>
+                            <label for="dateOfBirth" class="form-label"><?php echo __('date_of_birth'); ?> *</label>
                             <input type="date" 
                                    class="form-control" 
                                    id="dateOfBirth" 
@@ -435,17 +436,17 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="gender" class="form-label">Gender *</label>
+                            <label for="gender" class="form-label"><?php echo __('gender'); ?> *</label>
                             <select class="form-select" id="gender" name="gender" required>
-                                <option value="">Select Gender</option>
-                                <option value="MALE" <?php echo ($patient && $patient['gender'] === 'MALE') ? 'selected' : ''; ?>>Male</option>
-                                <option value="FEMALE" <?php echo ($patient && $patient['gender'] === 'FEMALE') ? 'selected' : ''; ?>>Female</option>
-                                <option value="OTHER" <?php echo ($patient && $patient['gender'] === 'OTHER') ? 'selected' : ''; ?>>Other</option>
+                                <option value=""><?php echo __('select_gender'); ?></option>
+                                <option value="MALE" <?php echo ($patient && $patient['gender'] === 'MALE') ? 'selected' : ''; ?>><?php echo __('male'); ?></option>
+                                <option value="FEMALE" <?php echo ($patient && $patient['gender'] === 'FEMALE') ? 'selected' : ''; ?>><?php echo __('female'); ?></option>
+                                <option value="OTHER" <?php echo ($patient && $patient['gender'] === 'OTHER') ? 'selected' : ''; ?>><?php echo __('other'); ?></option>
                             </select>
                         </div>
                         
                         <div class="col-12 mb-3">
-                            <label for="address" class="form-label">Address</label>
+                            <label for="address" class="form-label"><?php echo __('address'); ?></label>
                             <textarea class="form-control" 
                                       id="address" 
                                       name="address" 
@@ -453,23 +454,23 @@ ob_start();
                         </div>
                         
                         <div class="col-12 mb-3">
-                            <label for="medicalHistory" class="form-label">Medical History</label>
+                            <label for="medicalHistory" class="form-label"><?php echo __('medical_history'); ?></label>
                             <textarea class="form-control" 
                                       id="medicalHistory" 
                                       name="medicalHistory" 
                                       rows="3"
-                                      placeholder="Enter any relevant medical history, allergies, or conditions..."><?php echo $patient ? sanitize($patient['medicalHistory']) : ''; ?></textarea>
+                                      placeholder="<?php echo __('medical_history_placeholder'); ?>"><?php echo $patient ? sanitize($patient['medicalHistory']) : ''; ?></textarea>
                         </div>
                     </div>
                     
                     <div class="d-flex justify-content-between">
                         <a href="patients.php" class="btn btn-secondary">
                             <i class="bi bi-arrow-left"></i>
-                            Back to List
+                            <?php echo __('back_to_list'); ?>
                         </a>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check"></i>
-                            <?php echo $action === 'add' ? 'Create Patient' : 'Update Patient'; ?>
+                            <?php echo $action === 'add' ? __('create_patient') : __('update_patient'); ?>
                         </button>
                     </div>
                 </form>
@@ -483,12 +484,12 @@ ob_start();
 <div class="row justify-content-center">
     <div class="col-lg-6">
         <div class="card">
-            <div class="card-body text-center py-5">
+                <div class="card-body text-center py-5">
                 <i class="bi bi-person-x text-muted" style="font-size: 4rem;"></i>
-                <h3 class="mt-3 text-muted">Patient Not Found</h3>
-                <p class="text-muted">The patient you're looking for could not be found or you don't have permission to view it.</p>
+                <h3 class="mt-3 text-muted"><?php echo __('patient_not_found'); ?></h3>
+                <p class="text-muted"><?php echo __('patient_not_found_message'); ?></p>
                 <a href="patients.php" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Back to Patient List
+                    <i class="bi bi-arrow-left"></i> <?php echo __('back_to_list'); ?>
                 </a>
             </div>
         </div>
@@ -504,16 +505,16 @@ ob_start();
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="bi bi-person-badge"></i>
-                        Patient Details
+                        <?php echo __('patient_details'); ?>
                     </h5>
                     <div>
                         <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
                         <a href="patients.php?action=edit&id=<?php echo $patient['id']; ?>" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-pencil"></i> Edit
+                            <i class="bi bi-pencil"></i> <?php echo __('edit'); ?>
                         </a>
                         <?php endif; ?>
                         <a href="patients.php" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-arrow-left"></i> Back to List
+                            <i class="bi bi-arrow-left"></i> <?php echo __('back_to_list'); ?>
                         </a>
                     </div>
                 </div>
@@ -528,11 +529,11 @@ ob_start();
                                 <?php echo strtoupper(substr($patient['fullName'] ?? 'P', 0, 1)); ?>
                             </div>
                         </div>
-                        <h4><?php echo sanitize($patient['fullName'] ?? 'N/A'); ?></h4>
-                        <p class="text-muted mb-0">Patient ID: <?php echo substr($patient['id'] ?? 'N/A', 0, 8); ?>...</p>
+                        <h4><?php echo sanitize($patient['fullName'] ?? __('not_provided')); ?></h4>
+                        <p class="text-muted mb-0"><?php echo __('patient_id_label'); ?>: <?php echo substr($patient['id'] ?? __('not_provided'), 0, 8); ?>...</p>
                         <p class="text-muted">
                             <i class="bi bi-calendar"></i>
-                            Registered: <?php echo isset($patient['createdAt']) ? date('M j, Y', strtotime($patient['createdAt'])) : 'N/A'; ?>
+                            <?php echo __('registered'); ?>: <?php echo isset($patient['createdAt']) ? date('M j, Y', strtotime($patient['createdAt'])) : __('not_provided'); ?>
                         </p>
                     </div>
                     
@@ -542,63 +543,63 @@ ob_start();
                             <!-- Personal Information -->
                             <div class="col-12">
                                 <h6 class="text-primary mb-3">
-                                    <i class="bi bi-person"></i> Personal Information
+                                    <i class="bi bi-person"></i> <?php echo __('personal_information'); ?>
                                 </h6>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Full Name</label>
-                                <p class="fw-bold"><?php echo sanitize($patient['fullName'] ?? 'N/A'); ?></p>
+                                <label class="form-label text-muted"><?php echo __('full_name'); ?></label>
+                                <p class="fw-bold"><?php echo sanitize($patient['fullName'] ?? __('not_provided')); ?></p>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Email</label>
+                                <label class="form-label text-muted"><?php echo __('email'); ?></label>
                                 <p class="fw-bold">
                                     <?php if ($patient['email'] ?? false): ?>
                                         <a href="mailto:<?php echo $patient['email']; ?>"><?php echo sanitize($patient['email']); ?></a>
                                     <?php else: ?>
-                                        N/A
+                                        <?php echo __('not_provided'); ?>
                                     <?php endif; ?>
                                 </p>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Phone</label>
+                                <label class="form-label text-muted"><?php echo __('phone'); ?></label>
                                 <p class="fw-bold">
                                     <?php if ($patient['phone'] ?? false): ?>
                                         <a href="tel:<?php echo $patient['phone']; ?>"><?php echo sanitize($patient['phone']); ?></a>
                                     <?php else: ?>
-                                        N/A
+                                        <?php echo __('not_provided'); ?>
                                     <?php endif; ?>
                                 </p>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Date of Birth</label>
+                                <label class="form-label text-muted"><?php echo __('date_of_birth'); ?></label>
                                 <p class="fw-bold">
                                     <?php 
                                     if ($patient['dateOfBirth'] ?? false) {
                                         $dob = date('M j, Y', strtotime($patient['dateOfBirth']));
                                         $age = floor((time() - strtotime($patient['dateOfBirth'])) / 31556926);
-                                        echo $dob . ' <span class="text-muted">(' . $age . ' years old)</span>';
+                                        echo $dob . ' <span class="text-muted">(' . $age . ' ' . __('years') . ')</span>';
                                     } else {
-                                        echo 'N/A';
+                                        echo __('not_provided');
                                     }
                                     ?>
                                 </p>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Gender</label>
+                                <label class="form-label text-muted"><?php echo __("gender"); ?></label>
                                 <p class="fw-bold">
                                     <i class="bi bi-<?php echo ($patient['gender'] ?? '') === 'male' ? 'gender-male text-primary' : 'gender-female text-pink'; ?>"></i>
-                                    <?php echo ucfirst($patient['gender'] ?? 'N/A'); ?>
+                                    <?php echo ucfirst(__(strtolower($patient['gender'] ?? 'not_provided'))); ?>
                                 </p>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Emergency Contact</label>
-                                <p class="fw-bold"><?php echo sanitize($patient['emergencyContact'] ?? 'N/A'); ?></p>
+                                <label class="form-label text-muted"><?php echo __('emergency_contact'); ?></label>
+                                <p class="fw-bold"><?php echo sanitize($patient['emergencyContact'] ?? __('not_provided')); ?></p>
                             </div>
                         </div>
                         
@@ -606,12 +607,12 @@ ob_start();
                         <div class="row mt-3">
                             <div class="col-12">
                                 <h6 class="text-primary mb-3">
-                                    <i class="bi bi-geo-alt"></i> Address Information
+                                    <i class="bi bi-geo-alt"></i> <?php echo __('address_information'); ?>
                                 </h6>
                             </div>
                             <div class="col-12 mb-3">
-                                <label class="form-label text-muted">Address</label>
-                                <p class="fw-bold"><?php echo nl2br(sanitize($patient['address'] ?? 'N/A')); ?></p>
+                                <label class="form-label text-muted"><?php echo __('address'); ?></label>
+                                <p class="fw-bold"><?php echo nl2br(sanitize($patient['address'] ?? __('not_provided'))); ?></p>
                             </div>
                         </div>
                         
@@ -619,17 +620,17 @@ ob_start();
                         <div class="row mt-3">
                             <div class="col-12">
                                 <h6 class="text-primary mb-3">
-                                    <i class="bi bi-heart-pulse"></i> Medical Information
+                                    <i class="bi bi-heart-pulse"></i> <?php echo __('medical_information'); ?>
                                 </h6>
                             </div>
                             <div class="col-12 mb-3">
-                                <label class="form-label text-muted">Medical History</label>
+                                <label class="form-label text-muted"><?php echo __('medical_history'); ?></label>
                                 <div class="card bg-light">
                                     <div class="card-body">
                                         <?php if ($patient['medicalHistory'] ?? false): ?>
                                             <p class="mb-0"><?php echo nl2br(sanitize($patient['medicalHistory'])); ?></p>
                                         <?php else: ?>
-                                            <p class="mb-0 text-muted">No medical history recorded.</p>
+                                            <p class="mb-0 text-muted"><?php echo __('no_medical_history_recorded'); ?></p>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -644,19 +645,19 @@ ob_start();
                         <div class="d-flex gap-2 justify-content-end">
                             <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
                             <a href="appointments.php?action=add&patient_id=<?php echo $patient['id']; ?><?php echo ($user['role'] === 'DOCTOR') ? '&doctor_id=' . $user['id'] : ''; ?>" class="btn btn-outline-success">
-                                <i class="bi bi-calendar-plus"></i> Schedule Appointment
+                                <i class="bi bi-calendar-plus"></i> <?php echo __('schedule_appointment'); ?>
                             </a>
                             <?php endif; ?>
                             
                             <?php if (hasAnyRole(['ADMIN', 'DOCTOR'])): ?>
                             <a href="prescriptions.php?action=add&patient_id=<?php echo $patient['id']; ?>" class="btn btn-outline-info">
-                                <i class="bi bi-prescription"></i> Create Prescription
+                                <i class="bi bi-prescription"></i> <?php echo __('create_prescription'); ?>
                             </a>
                             <?php endif; ?>
                             
                             <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
                             <a href="patients.php?action=edit&id=<?php echo $patient['id']; ?>" class="btn btn-primary">
-                                <i class="bi bi-pencil"></i> Edit Patient
+                                <i class="bi bi-pencil"></i> <?php echo __('edit_patient'); ?>
                             </a>
                             <?php endif; ?>
                         </div>
@@ -719,16 +720,16 @@ ob_start();
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><?php echo __('delete_confirmation'); ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete patient <strong id="patientName"></strong>?</p>
-                <p class="text-danger"><small>This action cannot be undone.</small></p>
+                <p><?php echo __('are_you_sure'); ?> <strong id="patientName"></strong>?</p>
+                <p class="text-danger"><small><?php echo __('action_cannot_undone'); ?></small></p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete Patient</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('cancel'); ?></button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger"><?php echo __('delete_patient'); ?></a>
             </div>
         </div>
     </div>

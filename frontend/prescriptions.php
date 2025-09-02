@@ -1,8 +1,9 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 requireAnyRole(['ADMIN', 'DOCTOR', 'NURSE']);
 
-$pageTitle = 'Prescription Management';
+$pageTitle = __('prescription_management');
 $user = getCurrentUser();
 $action = $_GET['action'] ?? 'list';
 
@@ -33,10 +34,10 @@ function getPatientName($patientId, $patients)
                     return $fullName;
             }
             // Fallback to Patient ID if no name found
-            return 'Patient #' . substr($patientId, 0, 8);
+        return sprintf(__('patient_fallback_id'), substr($patientId, 0, 8));
         }
     }
-    return 'Unknown Patient';
+    return __('unknown_patient');
 }
 
 function getDoctorName($doctorId, $users)
@@ -59,10 +60,10 @@ function getDoctorName($doctorId, $users)
                 return explode('@', $user['email'])[0];
             }
             // Fallback to Doctor ID if no name found
-            return 'Doctor #' . substr($doctorId, 0, 8);
+        return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
         }
     }
-    return 'Unknown Doctor';
+    return __('unknown_doctor');
 }
 
 
@@ -75,7 +76,7 @@ $offset = ($page - 1) * $limit;
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid CSRF token.';
+        $error = __('invalid_csrf_token');
     } else {
         $token = $_SESSION['token'];
 
@@ -108,13 +109,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $response = makeApiCall(PRESCRIPTION_SERVICE_URL, 'POST', $prescriptionData, $token);
 
                 if ($response['status_code'] === 201) {
-                    $success = 'Prescription created successfully.';
+                    $success = __('prescription_created_success');
                     $action = 'list';
                 } else {
-                    $error = handleApiError($response) ?: 'Failed to create prescription.';
+                    $error = handleApiError($response) ?: __('failed_to_create_prescription');
                 }
             } else {
-                $error = 'Patient, Doctor, and at least one medication are required.';
+                    $error = __('patient_doctor_medication_required');
             }
         } elseif ($action === 'update_status' && isset($_POST['prescriptionId'])) {
             // Update prescription status
@@ -128,11 +129,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $token
             );
 
-            if ($response['status_code'] === 200) {
-                $success = 'Prescription status updated successfully.';
-                $action = 'list';
+                if ($response['status_code'] === 200) {
+                    $success = __('prescription_updated_success');
+                    $action = 'list';
             } else {
-                $error = handleApiError($response) ?: 'Failed to update prescription status.';
+                $error = handleApiError($response) ?: __('prescription_update_failed');
             }
         }
     }
@@ -146,9 +147,9 @@ if ($action === 'delete' && isset($_GET['id'])) {
     $response = makeApiCall(PRESCRIPTION_SERVICE_URL . '/' . $prescriptionId, 'DELETE', null, $token);
 
     if ($response['status_code'] === 200 || $response['status_code'] === 204) {
-        $success = 'Prescription deleted successfully.';
+        $success = __('prescription_deleted_success');
     } else {
-        $error = handleApiError($response) ?: 'Failed to delete prescription.';
+    $error = handleApiError($response) ?: __('failed_to_delete_prescription');
     }
     $action = 'list';
 }
@@ -204,10 +205,10 @@ try {
                 $pagination = paginate($page, $totalPages, $baseUrl);
             }
         } else {
-            $error = handleApiError($response) ?: 'Failed to load prescriptions.';
+            $error = handleApiError($response) ?: __('failed_to_load');
             // Debug: Add more error details
             if (isset($_GET['debug'])) {
-                $error .= ' (Status: ' . $response['status_code'] . ', URL: ' . PRESCRIPTION_SERVICE_URL . ')';
+                $error .= ' (' . sprintf(__('status_with_code'), $response['status_code']) . ', URL: ' . PRESCRIPTION_SERVICE_URL . ')';
             }
         }
     } elseif (($action === 'edit' || $action === 'view') && isset($_GET['id'])) {
@@ -216,7 +217,7 @@ try {
         if ($response['status_code'] === 200) {
             $prescription = $response['data'];
         } else {
-            $error = handleApiError($response) ?: 'Prescription not found.';
+            $error = handleApiError($response) ?: __('prescription_not_found');
         }
     }
 
@@ -262,7 +263,7 @@ try {
     }
 
 } catch (Exception $e) {
-    $error = 'System error: ' . $e->getMessage();
+    $error = sprintf(__('system_error_with_message'), $e->getMessage());
 }
 
 // Start output buffering for page content
@@ -274,16 +275,16 @@ ob_start();
     <div>
         <h1 class="h3 mb-1">
             <i class="bi bi-prescription2"></i>
-            Prescription Management
+            <?php echo __('prescription_management'); ?>
         </h1>
-        <p class="text-muted mb-0">Manage patient prescriptions and medications</p>
+        <p class="text-muted mb-0"><?php echo __('prescription_management_description'); ?></p>
     </div>
 
     <?php if ($action === 'list' && hasAnyRole(['ADMIN', 'DOCTOR'])): ?>
         <div>
             <a href="prescriptions.php?action=add" class="btn btn-primary">
                 <i class="bi bi-plus-circle"></i>
-                Create Prescription
+                <?php echo __('add_prescription'); ?>
             </a>
         </div>
     <?php endif; ?>
@@ -292,14 +293,14 @@ ob_start();
 <?php if ($error): ?>
     <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle"></i>
-        <?php echo $error; ?>
+    <?php echo htmlspecialchars($error); ?>
     </div>
 <?php endif; ?>
 
 <?php if ($success): ?>
     <div class="alert alert-success">
         <i class="bi bi-check-circle"></i>
-        <?php echo $success; ?>
+    <?php echo htmlspecialchars($success); ?>
     </div>
 <?php endif; ?>
 
@@ -311,7 +312,7 @@ ob_start();
                 <div class="col-md-6">
                     <h5 class="mb-0">
                         <i class="bi bi-list"></i>
-                        Prescriptions List
+                        <?php echo __('prescriptions_list'); ?>
                         <?php if (isset($totalPrescriptions) && $totalPrescriptions > 0): ?>
                             <span class="badge bg-primary ms-2"><?php echo $totalPrescriptions; ?></span>
                         <?php endif; ?>
@@ -321,7 +322,7 @@ ob_start();
                     <!-- Search Form -->
                     <form method="GET" class="d-flex">
                         <input type="text" class="form-control form-control-sm me-2" name="search"
-                            placeholder="Search prescriptions..." value="<?php echo htmlspecialchars($search); ?>">
+                            placeholder="<?php echo __('search_prescriptions'); ?>" value="<?php echo htmlspecialchars($search); ?>">
                         <button type="submit" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-search"></i>
                         </button>
@@ -341,25 +342,25 @@ ob_start();
                     <thead class="table-dark">
                         <tr>
                             <th class="border-0">
-                                <i class="bi bi-hash me-1"></i>ID
+                                <i class="bi bi-hash me-1"></i><?php echo __('id'); ?>
                             </th>
                             <th class="border-0">
-                                <i class="bi bi-person me-1"></i>Patient
+                                <i class="bi bi-person me-1"></i><?php echo __('patient'); ?>
                             </th>
                             <th class="border-0">
-                                <i class="bi bi-person-badge me-1"></i>Doctor
+                                <i class="bi bi-person-badge me-1"></i><?php echo __('doctor'); ?>
                             </th>
                             <th class="border-0">
-                                <i class="bi bi-flag me-1"></i>Status
+                                <i class="bi bi-flag me-1"></i><?php echo __('status'); ?>
                             </th>
                             <th class="border-0">
-                                <i class="bi bi-calendar-event me-1"></i>Created Date
+                                <i class="bi bi-calendar-event me-1"></i><?php echo __('created'); ?>
                             </th>
                             <th class="border-0">
-                                <i class="bi bi-capsule me-1"></i>Medications
+                                <i class="bi bi-capsule me-1"></i><?php echo __('medications'); ?>
                             </th>
                             <th class="border-0 text-center">
-                                <i class="bi bi-gear me-1"></i>Actions
+                                <i class="bi bi-gear me-1"></i><?php echo __('actions'); ?>
                             </th>
                         </tr>
                     </thead>
@@ -368,9 +369,9 @@ ob_start();
                             <tr>
                                 <td colspan="7" class="text-center py-5">
                                     <i class="bi bi-prescription2 text-muted" style="font-size: 3rem;"></i>
-                                    <p class="text-muted mt-2 mb-0">No prescriptions found</p>
+                                    <p class="text-muted mt-2 mb-0"><?php echo __('no_prescriptions_found'); ?></p>
                                     <?php if ($search): ?>
-                                        <small class="text-muted">Try adjusting your search criteria</small>
+                                        <small class="text-muted"><?php echo __('try_adjust_search'); ?></small>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -382,19 +383,18 @@ ob_start();
                                 $doctorName = getDoctorName($pres['doctorId'], $users);
 
                                 // Format date
-                                $createdDate = isset($pres['createdAt']) ? date('M j, Y H:i', strtotime($pres['createdAt'])) : 'N/A';
+                                $createdDate = isset($pres['createdAt']) ? date('M j, Y H:i', strtotime($pres['createdAt'])) : __('not_provided');
 
                                 // Status styling
                                 $statusClass = getPrescriptionStatusClass($pres['status'] ?? 'UNKNOWN');
-                                $statusText = ucfirst(strtolower($pres['status'] ?? 'Unknown'));
+                                $statusText = ucfirst(strtolower($pres['status'] ?? __('unknown')));
 
                                 // Count medications
                                 $medicationCount = isset($pres['itemsCount']) ? (int)$pres['itemsCount'] : 0;
  ?>
                                 <tr>
                                     <td class="align-middle">
-                                        <span
-                                            class="text-monospace small"><?php echo htmlspecialchars(substr($pres['id'] ?? 'N/A', 0, 8)); ?>...</span>
+                                        <span class="text-monospace small"><?php echo htmlspecialchars(substr($pres['id'] ?? __('not_provided'), 0, 8)); ?>...</span>
                                     </td>
                                     <td class="align-middle">
                                         <div class="d-flex align-items-center">
@@ -404,8 +404,7 @@ ob_start();
                                             </div>
                                             <div>
                                                 <div class="fw-bold text-dark"><?php echo htmlspecialchars($patientName); ?></div>
-                                                <small class="text-muted">ID:
-                                                    <?php echo htmlspecialchars(substr($pres['patientId'] ?? 'N/A', 0, 8)); ?>...</small>
+                                                <small class="text-muted"><?php echo __('patient_id_label'); ?>: <?php echo htmlspecialchars(substr($pres['patientId'] ?? __('not_provided'), 0, 8)); ?>...</small>
                                             </div>
                                         </div>
                                     </td>
@@ -416,10 +415,9 @@ ob_start();
                                                 <?php echo strtoupper(substr($doctorName, 0, 1)); ?>
                                             </div>
                                             <div>
-                                                <div class="fw-bold text-dark">Dr. <?php echo htmlspecialchars($doctorName); ?>
+                                                <div class="fw-bold text-dark"><?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctorName)); ?>
                                                 </div>
-                                                <small class="text-muted">ID:
-                                                    <?php echo htmlspecialchars(substr($pres['doctorId'] ?? 'N/A', 0, 8)); ?>...</small>
+                                                <small class="text-muted"><?php echo __('doctor_id_label'); ?>: <?php echo htmlspecialchars(substr($pres['doctorId'] ?? __('not_provided'), 0, 8)); ?>...</small>
                                             </div>
                                         </div>
                                     </td>
@@ -432,28 +430,28 @@ ob_start();
                                             class="text-muted"><?php echo isset($pres['createdAt']) ? date('l', strtotime($pres['createdAt'])) : ''; ?></small>
                                     </td>
                                     <td class="align-middle">
-                                        <span class="badge bg-light text-dark">
+                                            <span class="badge bg-light text-dark">
                                             <i class="bi bi-capsule me-1"></i><?php echo $medicationCount; ?>
-                                            item<?php echo $medicationCount !== 1 ? 's' : ''; ?>
+                                            <?php echo $medicationCount !== 1 ? __('items') : __('item'); ?>
                                         </span>
                                     </td>
                                     <td class="align-middle text-center">
                                         <div class="btn-group btn-group-sm">
                                             <a href="prescriptions.php?action=view&id=<?php echo $pres['id']; ?>"
-                                                class="btn btn-outline-primary btn-sm" title="View Details">
+                                                class="btn btn-outline-primary btn-sm" title="<?php echo __('view_details'); ?>">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                             <?php if (hasAnyRole(['ADMIN', 'DOCTOR']) && ($pres['status'] ?? '') !== 'DISPENSED'): ?>
                                                 <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal"
                                                     data-bs-target="#statusModal" data-prescription-id="<?php echo $pres['id']; ?>"
-                                                    data-current-status="<?php echo $pres['status'] ?? ''; ?>" title="Update Status">
+                                                    data-current-status="<?php echo $pres['status'] ?? ''; ?>" title="<?php echo __('update_status'); ?>">
                                                     <i class="bi bi-arrow-repeat"></i>
                                                 </button>
                                             <?php endif; ?>
                                             <?php if (hasRole('ADMIN')): ?>
                                                 <button type="button" class="btn btn-outline-danger btn-sm"
-                                                    onclick="confirmDelete('<?php echo $pres['id']; ?>', '<?php echo htmlspecialchars($patientName); ?>')"
-                                                    title="Delete">
+                                                    onclick="confirmDelete('<?php echo $pres['id']; ?>', '<?php echo addslashes($patientName); ?>')"
+                                                    title="<?php echo __('delete'); ?>">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             <?php endif; ?>
@@ -471,9 +469,7 @@ ob_start();
         <?php if ($pagination): ?>
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <div class="text-muted">
-                    Showing <?php echo (($page - 1) * $limit + 1); ?> to
-                    <?php echo min($page * $limit, $totalPrescriptions ?? 0); ?> of <?php echo $totalPrescriptions ?? 0; ?>
-                    prescriptions
+                    <?php echo sprintf(__('showing_prescriptions_range'), (($page - 1) * $limit + 1), min($page * $limit, $totalPrescriptions ?? 0), $totalPrescriptions ?? 0); ?>
                 </div>
                 <nav>
                     <?php echo $pagination; ?>
@@ -488,9 +484,9 @@ ob_start();
         <div class="col-lg-10">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">
+                        <h5 class="mb-0">
                         <i class="bi bi-plus-circle"></i>
-                        Create New Prescription
+                        <?php echo __('new_prescription'); ?>
                     </h5>
                 </div>
 
@@ -500,41 +496,40 @@ ob_start();
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="patientId" class="form-label">Patient *</label>
+                                <label for="patientId" class="form-label"><?php echo __('patient'); ?> *</label>
                                 <select class="form-select" id="patientId" name="patientId" required>
-                                    <option value="">Select a patient...</option>
+                                    <option value=""><?php echo __('select_patient'); ?></option>
                                     <?php 
                                     $preselectPatientId = $_GET['patient_id'] ?? '';
                                     foreach ($patients as $patient): ?>
                                         <option value="<?php echo $patient['id']; ?>" <?php echo ($patient['id'] == $preselectPatientId) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($patient['fullName'] ?? 'Unknown'); ?>
+                                            <?php echo htmlspecialchars($patient['fullName'] ?? __('unknown')); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
 
                             <div class="col-md-6 mb-3">
-                                <label for="doctorId" class="form-label">Doctor *</label>
+                                <label for="doctorId" class="form-label"><?php echo __('doctor'); ?> *</label>
                                 <select class="form-select" id="doctorId" name="doctorId" required>
-                                    <option value="">Select a doctor...</option>
+                                    <option value=""><?php echo __('select_doctor'); ?></option>
                                     <?php foreach ($users as $doctor): ?>
-                                        <option value="<?php echo $doctor['id']; ?>">
-                                            Dr.
-                                            <?php echo htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? 'Unknown'); ?>
+                                            <option value="<?php echo $doctor['id']; ?>">
+                                            <?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? __('unknown'))); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
 
                             <div class="col-md-6 mb-3">
-                                <label for="appointmentId" class="form-label">Related Appointment</label>
+                                <label for="appointmentId" class="form-label"><?php echo __('related_appointment'); ?></label>
                                 <select class="form-select" id="appointmentId" name="appointmentId">
-                                    <option value="">Select an appointment (optional)...</option>
+                                    <option value=""><?php echo __('select_appointment_optional'); ?></option>
                                     <?php foreach ($appointments as $appointment): ?>
                                         <option value="<?php echo $appointment['id']; ?>">
                                             <?php
                                             $aptPatientName = getPatientName($appointment['patientId'], $patients);
-                                            $aptDate = isset($appointment['startTime']) ? date('M j, Y H:i', strtotime($appointment['startTime'])) : 'N/A';
+                                            $aptDate = isset($appointment['startTime']) ? date('M j, Y H:i', strtotime($appointment['startTime'])) : __('not_provided');
                                             echo htmlspecialchars($aptPatientName . ' - ' . $aptDate);
                                             ?>
                                         </option>
@@ -543,11 +538,11 @@ ob_start();
                             </div>
 
                             <div class="col-12 mb-4">
-                                <label class="form-label">Medications *</label>
+                                <label class="form-label"><?php echo __('medications'); ?> *</label>
                                 <div id="medicationsContainer">
                                     <div class="medication-item border rounded p-3 mb-3">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="mb-0">Medication #1</h6>
+                                            <h6 class="mb-0"><?php echo sprintf(__('medication_item_title'), 1); ?></h6>
                                             <button type="button" class="btn btn-outline-danger btn-sm remove-medication"
                                                 style="display: none;">
                                                 <i class="bi bi-trash"></i>
@@ -555,52 +550,52 @@ ob_start();
                                         </div>
                                         <div class="row">
                                             <div class="col-md-3 mb-2">
-                                                <label class="form-label">Drug Name</label>
+                                                <label class="form-label"><?php echo __('medication_name'); ?></label>
                                                 <input type="text" class="form-control" name="drugName[]"
-                                                    placeholder="Enter drug name" required>
+                                                    placeholder="<?php echo __('medication_name'); ?>" required>
                                             </div>
                                             <div class="col-md-2 mb-2">
-                                                <label class="form-label">Dosage</label>
+                                                <label class="form-label"><?php echo __('dosage'); ?></label>
                                                 <input type="text" class="form-control" name="dosage[]"
-                                                    placeholder="e.g., 500mg" required>
+                                                    placeholder="<?php echo __('dosage_example'); ?>" required>
                                             </div>
                                             <div class="col-md-2 mb-2">
-                                                <label class="form-label">Frequency</label>
+                                                <label class="form-label"><?php echo __('frequency'); ?></label>
                                                 <input type="text" class="form-control" name="frequency[]"
-                                                    placeholder="e.g., 2x daily" required>
+                                                    placeholder="<?php echo __('frequency_example'); ?>" required>
                                             </div>
                                             <div class="col-md-2 mb-2">
-                                                <label class="form-label">Duration (Days)</label>
+                                                <label class="form-label"><?php echo __('duration'); ?> (<?php echo __('days'); ?>)</label>
                                                 <input type="number" class="form-control" name="durationDays[]" min="1"
                                                     required>
                                             </div>
                                             <div class="col-md-3 mb-2">
-                                                <label class="form-label">Instructions</label>
+                                                <label class="form-label"><?php echo __('instructions'); ?></label>
                                                 <input type="text" class="form-control" name="instruction[]"
-                                                    placeholder="e.g., After meals">
+                                                    placeholder="<?php echo __('instruction_example'); ?>">
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <button type="button" class="btn btn-outline-primary" id="addMedication">
-                                    <i class="bi bi-plus"></i> Add Another Medication
+                                    <i class="bi bi-plus"></i> <?php echo __('add_another_medication'); ?>
                                 </button>
                             </div>
 
                             <div class="col-12 mb-3">
-                                <label for="note" class="form-label">Prescription Notes</label>
+                                <label for="note" class="form-label"><?php echo __('prescription_notes'); ?></label>
                                 <textarea class="form-control" id="note" name="note" rows="3"
-                                    placeholder="Enter any additional notes or instructions..."></textarea>
+                                    placeholder="<?php echo __('prescription_notes_placeholder'); ?>"></textarea>
                             </div>
                         </div>
 
                         <div class="d-flex justify-content-end gap-2">
                             <a href="prescriptions.php" class="btn btn-outline-secondary">
-                                <i class="bi bi-x"></i> Cancel
+                                <i class="bi bi-x"></i> <?php echo __('cancel'); ?>
                             </a>
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check"></i> Create Prescription
+                                <i class="bi bi-check"></i> <?php echo __('create_prescription'); ?>
                             </button>
                         </div>
                     </form>
@@ -618,11 +613,11 @@ ob_start();
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="bi bi-prescription2"></i>
-                            Prescription Details
+                            <?php echo __('prescription_details'); ?>
                         </h5>
                         <div>
                             <a href="prescriptions.php" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-arrow-left"></i> Back to List
+                                <i class="bi bi-arrow-left"></i> <?php echo __('back_to_list'); ?>
                             </a>
                         </div>
                     </div>
@@ -631,48 +626,46 @@ ob_start();
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Prescription ID</label>
+                            <label class="form-label text-muted"><?php echo __('prescription_id'); ?></label>
                             <p class="fw-bold text-monospace"><?php echo htmlspecialchars($prescription['id']); ?></p>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Status</label>
+                            <label class="form-label text-muted"><?php echo __('status'); ?></label>
                             <p><span
-                                    class="<?php echo getPrescriptionStatusClass($prescription['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($prescription['status'] ?? 'Unknown')); ?></span>
+                                    class="<?php echo getPrescriptionStatusClass($prescription['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($prescription['status'] ?? __('unknown'))); ?></span>
                             </p>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Patient</label>
+                            <label class="form-label text-muted"><?php echo __('patient'); ?></label>
                             <p class="fw-bold">
                                 <?php echo htmlspecialchars(getPatientName($prescription['patientId'], $patients)); ?></p>
-                            <small class="text-muted">ID:
-                                <?php echo htmlspecialchars($prescription['patientId']); ?></small>
+                            <small class="text-muted"><?php echo __('patient_id_label'); ?>: <?php echo htmlspecialchars($prescription['patientId']); ?></small>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Doctor</label>
-                            <p class="fw-bold">Dr.
-                                <?php echo htmlspecialchars(getDoctorName($prescription['doctorId'], $users)); ?></p>
-                            <small class="text-muted">ID: <?php echo htmlspecialchars($prescription['doctorId']); ?></small>
+                            <label class="form-label text-muted"><?php echo __('doctor'); ?></label>
+                            <p class="fw-bold"><?php echo sprintf(__('doctor_title_name'), htmlspecialchars(getDoctorName($prescription['doctorId'], $users))); ?></p>
+                            <small class="text-muted"><?php echo __('doctor_id_label') ?? __('id'); ?>: <?php echo htmlspecialchars($prescription['doctorId']); ?></small>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Created Date</label>
+                            <label class="form-label text-muted"><?php echo __('created_date_label'); ?></label>
                             <p class="fw-bold">
-                                <?php echo isset($prescription['createdAt']) ? date('l, F j, Y \a\t H:i', strtotime($prescription['createdAt'])) : 'N/A'; ?>
+                                <?php echo isset($prescription['createdAt']) ? date('l, F j, Y \a\t H:i', strtotime($prescription['createdAt'])) : __('not_provided'); ?>
                             </p>
                         </div>
 
                         <?php if ($prescription['appointmentId'] ?? false): ?>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted">Related Appointment</label>
+                                <label class="form-label text-muted"><?php echo __('related_appointment'); ?></label>
                                 <p class="fw-bold"><?php echo htmlspecialchars($prescription['appointmentId']); ?></p>
                             </div>
                         <?php endif; ?>
 
                         <div class="col-12 mb-4">
-                            <label class="form-label text-muted">Prescribed Medications</label>
+                            <label class="form-label text-muted"><?php echo __('prescribed_medications'); ?></label>
                             <div class="card bg-light">
                                 <div class="card-body">
                                     <?php if (!empty($prescription['items'])): ?>
@@ -681,18 +674,18 @@ ob_start();
                                                 class="d-flex justify-content-between align-items-start mb-3 <?php echo $index > 0 ? 'border-top pt-3' : ''; ?>">
                                                 <div>
                                                     <h6 class="mb-1">
-                                                        <?php echo htmlspecialchars($item['drugName'] ?? 'Unknown Drug'); ?></h6>
+                                                        <?php echo htmlspecialchars($item['drugName'] ?? __('unknown_drug')); ?></h6>
                                                     <p class="text-muted mb-1">
-                                                        <strong>Dosage:</strong>
-                                                        <?php echo htmlspecialchars($item['dosage'] ?? 'N/A'); ?> |
-                                                        <strong>Frequency:</strong>
-                                                        <?php echo htmlspecialchars($item['frequency'] ?? 'N/A'); ?> |
-                                                        <strong>Duration:</strong>
-                                                        <?php echo htmlspecialchars($item['durationDays'] ?? 'N/A'); ?> days
+                                                        <strong><?php echo __('dosage_label'); ?>:</strong>
+                                                        <?php echo htmlspecialchars($item['dosage'] ?? __('not_provided')); ?> |
+                                                        <strong><?php echo __('frequency_label'); ?>:</strong>
+                                                        <?php echo htmlspecialchars($item['frequency'] ?? __('not_provided')); ?> |
+                                                        <strong><?php echo __('duration_label'); ?>:</strong>
+                                                        <?php echo htmlspecialchars($item['durationDays'] ?? __('not_provided')); ?> <?php echo __('days') ?? 'days'; ?>
                                                     </p>
                                                     <?php if ($item['instruction'] ?? false): ?>
                                                         <p class="text-muted mb-0">
-                                                            <strong>Instructions:</strong>
+                                                            <strong><?php echo __('instructions_label'); ?>:</strong>
                                                             <?php echo htmlspecialchars($item['instruction']); ?>
                                                         </p>
                                                     <?php endif; ?>
@@ -701,7 +694,7 @@ ob_start();
                                             </div>
                                         <?php endforeach; ?>
                                     <?php else: ?>
-                                        <p class="mb-0 text-muted">No medications prescribed.</p>
+                                        <p class="mb-0 text-muted"><?php echo __('no_medications_prescribed'); ?></p>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -709,7 +702,7 @@ ob_start();
 
                         <?php if ($prescription['note'] ?? false): ?>
                             <div class="col-12 mb-3">
-                                <label class="form-label text-muted">Prescription Notes</label>
+                                <label class="form-label text-muted"><?php echo __('prescription_notes'); ?></label>
                                 <div class="card bg-light">
                                     <div class="card-body">
                                         <p class="mb-0"><?php echo nl2br(htmlspecialchars($prescription['note'])); ?></p>
@@ -725,7 +718,7 @@ ob_start();
                             <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#statusModal"
                                 data-prescription-id="<?php echo $prescription['id']; ?>"
                                 data-current-status="<?php echo $prescription['status'] ?? ''; ?>">
-                                <i class="bi bi-arrow-repeat"></i> Update Status
+                                <i class="bi bi-arrow-repeat"></i> <?php echo __('update_status'); ?>
                             </button>
                         <?php endif; ?>
                     </div>
@@ -741,11 +734,10 @@ ob_start();
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="bi bi-prescription2 text-muted" style="font-size: 4rem;"></i>
-                    <h3 class="mt-3 text-muted">Prescription Not Found</h3>
-                    <p class="text-muted">The prescription you're looking for could not be found or you don't have
-                        permission to view it.</p>
+                    <h3 class="mt-3 text-muted"><?php echo __('prescription_not_found'); ?></h3>
+                    <p class="text-muted"><?php echo __('prescription_not_found_message'); ?></p>
                     <a href="prescriptions.php" class="btn btn-primary">
-                        <i class="bi bi-arrow-left"></i> Back to Prescriptions List
+                        <i class="bi bi-arrow-left"></i> <?php echo __('back_to_prescriptions_list'); ?>
                     </a>
                 </div>
             </div>
@@ -760,27 +752,27 @@ ob_start();
         <div class="modal-content">
             <form method="POST" action="prescriptions.php?action=update_status">
                 <div class="modal-header">
-                    <h5 class="modal-title">Update Prescription Status</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title"><?php echo __('update_status'); ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="csrf_token" value="<?php echo getCsrfToken(); ?>">
                     <input type="hidden" name="prescriptionId" id="modalPrescriptionId">
 
                     <div class="mb-3">
-                        <label for="modalStatus" class="form-label">New Status</label>
+                        <label for="modalStatus" class="form-label"><?php echo __('new_status'); ?></label>
                         <select class="form-select" id="modalStatus" name="status" required>
-                            <option value="ISSUED">Issued</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="DISPENSED">Dispensed</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="CANCELED">Canceled</option>
+                            <option value="ISSUED"><?php echo __('issued'); ?></option>
+                            <option value="PENDING"><?php echo __('pending'); ?></option>
+                            <option value="DISPENSED"><?php echo __('dispensed'); ?></option>
+                            <option value="COMPLETED"><?php echo __('completed'); ?></option>
+                            <option value="CANCELED"><?php echo __('canceled'); ?></option>
                         </select>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Status</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('cancel'); ?></button>
+                    <button type="submit" class="btn btn-primary"><?php echo __('update_status'); ?></button>
                 </div>
             </form>
         </div>
@@ -792,16 +784,16 @@ ob_start();
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><?php echo __('delete_confirmation'); ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete the prescription for <strong id="prescriptionPatient"></strong>?</p>
-                <p class="text-danger"><small>This action cannot be undone.</small></p>
+                <p><?php echo __('are_you_sure'); ?> <strong id="prescriptionPatient"></strong>?</p>
+                <p class="text-danger"><small><?php echo __('action_cannot_undone'); ?></small></p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete Prescription</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('cancel'); ?></button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger"><?php echo __('delete_prescription'); ?></a>
             </div>
         </div>
     </div>
@@ -836,31 +828,31 @@ ob_start();
             medicationItem.className = 'medication-item border rounded p-3 mb-3';
             medicationItem.innerHTML = `
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0">Medication #${medicationCount}</h6>
+                <h6 class="mb-0"><?php echo sprintf(__('medication_item_title'), '${medicationCount}'); ?></h6>
                 <button type="button" class="btn btn-outline-danger btn-sm remove-medication">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Drug Name</label>
-                    <input type="text" class="form-control" name="drugName[]" placeholder="Enter drug name" required>
+                    <label class="form-label"><?php echo __('medication_name'); ?></label>
+                    <input type="text" class="form-control" name="drugName[]" placeholder="<?php echo __('medication_name'); ?>" required>
                 </div>
                 <div class="col-md-2 mb-2">
-                    <label class="form-label">Dosage</label>
-                    <input type="text" class="form-control" name="dosage[]" placeholder="e.g., 500mg" required>
+                    <label class="form-label"><?php echo __('dosage'); ?></label>
+                    <input type="text" class="form-control" name="dosage[]" placeholder="<?php echo __('dosage_example'); ?>" required>
                 </div>
                 <div class="col-md-2 mb-2">
-                    <label class="form-label">Frequency</label>
-                    <input type="text" class="form-control" name="frequency[]" placeholder="e.g., 2x daily" required>
+                    <label class="form-label"><?php echo __('frequency'); ?></label>
+                    <input type="text" class="form-control" name="frequency[]" placeholder="<?php echo __('frequency_example'); ?>" required>
                 </div>
                 <div class="col-md-2 mb-2">
-                    <label class="form-label">Duration (Days)</label>
+                    <label class="form-label"><?php echo __('duration'); ?> (<?php echo __('days') ?? 'Days'; ?>)</label>
                     <input type="number" class="form-control" name="durationDays[]" min="1" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Instructions</label>
-                    <input type="text" class="form-control" name="instruction[]" placeholder="e.g., After meals">
+                    <label class="form-label"><?php echo __('instructions'); ?></label>
+                    <input type="text" class="form-control" name="instruction[]" placeholder="<?php echo __('instruction_example'); ?>">
                 </div>
             </div>
         `;
@@ -892,9 +884,10 @@ ob_start();
 
         function updateMedicationNumbers() {
             const items = document.querySelectorAll('.medication-item');
+            const medTitleTemplate = "<?php echo addslashes(sprintf(__('medication_item_title'), '%s')); ?>";
             items.forEach((item, index) => {
                 const header = item.querySelector('h6');
-                header.textContent = `Medication #${index + 1}`;
+                header.textContent = medTitleTemplate.replace('%s', index + 1);
             });
             medicationCount = items.length;
         }

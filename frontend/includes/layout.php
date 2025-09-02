@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="<?php echo getCurrentLanguage(); ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?>Hospital Management System</title>
+    <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo __('hospital_subtitle'); ?></title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -273,8 +273,8 @@
 <body>
     <!-- Loading Spinner -->
     <div class="spinner-overlay" id="loadingSpinner">
-        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden"><?php echo __('loading'); ?></span>
         </div>
     </div>
 
@@ -289,7 +289,7 @@
             <!-- Brand -->
             <a class="navbar-brand" href="dashboard.php">
                 <i class="bi bi-hospital"></i>
-                HMS
+                <?php echo __('site_short'); ?>
             </a>
 
             <!-- Right side menu -->
@@ -303,21 +303,21 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li>
-                            <h6 class="dropdown-header">Recent Notifications</h6>
+                            <h6 class="dropdown-header"><?php echo __('recent_notifications'); ?></h6>
                         </li>
                         <li><a class="dropdown-item" href="notifications.php">
                                 <i class="bi bi-calendar-check text-success"></i>
-                                New appointment scheduled
+                                <?php echo __('new_appointment_scheduled'); ?>
                             </a></li>
                         <li><a class="dropdown-item" href="notifications.php">
                                 <i class="bi bi-prescription2 text-info"></i>
-                                Prescription ready for pickup
+                                <?php echo __('prescription_ready'); ?>
                             </a></li>
                         <li>
                             <hr class="dropdown-divider">
                         </li>
                         <li><a class="dropdown-item text-center" href="notifications.php">
-                                <i class="bi bi-bell"></i> View All Notifications
+                                <i class="bi bi-bell"></i> <?php echo __('view_all_notifications'); ?>
                             </a></li>
                     </ul>
                 </div>
@@ -330,15 +330,15 @@
                     <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                         data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle"></i>
-                        <?php echo getCurrentUser()['fullName'] ?? 'User'; ?>
+                        <?php echo htmlspecialchars(getCurrentUser()['fullName'] ?? __('user')); ?>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="profile.php"><i class="bi bi-person"></i> Profile</a></li>
-                        <li><a class="dropdown-item" href="settings.php"><i class="bi bi-gear"></i> Settings</a></li>
+                        <li><a class="dropdown-item" href="profile.php"><i class="bi bi-person"></i> <?php echo __('profile'); ?></a></li>
+                        <li><a class="dropdown-item" href="settings.php"><i class="bi bi-gear"></i> <?php echo __('settings'); ?></a></li>
                         <li>
                             <hr class="dropdown-divider">
                         </li>
-                        <li><a class="dropdown-item" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
+                        <li><a class="dropdown-item" href="logout.php"><i class="bi bi-box-arrow-right"></i> <?php echo __('logout'); ?></a>
                         </li>
                     </ul>
                 </div>
@@ -356,7 +356,7 @@
                         <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>"
                             href="dashboard.php">
                             <i class="bi bi-speedometer2"></i>
-                            Dashboard
+                            <?php echo __('dashboard'); ?>
                         </a>
                     </li>
 
@@ -366,7 +366,7 @@
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'patients.php' ? 'active' : ''; ?>"
                                 href="patients.php">
                                 <i class="bi bi-people"></i>
-                                Patients
+                                <?php echo __('patients'); ?>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -377,7 +377,7 @@
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'appointments.php' ? 'active' : ''; ?>"
                                 href="appointments.php">
                                 <i class="bi bi-calendar-check"></i>
-                                Appointments
+                                <?php echo __('appointments'); ?>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -388,7 +388,7 @@
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'prescriptions.php' ? 'active' : ''; ?>"
                                 href="prescriptions.php">
                                 <i class="bi bi-prescription2"></i>
-                                Prescriptions
+                                <?php echo __('prescriptions'); ?>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -399,7 +399,7 @@
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>"
                                 href="users.php">
                                 <i class="bi bi-person-gear"></i>
-                                User Management
+                                <?php echo __('user_management'); ?>
                             </a>
                         </li>
 
@@ -408,7 +408,7 @@
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>"
                                 href="reports.php">
                                 <i class="bi bi-graph-up"></i>
-                                Reports
+                                <?php echo __('reports'); ?>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -416,23 +416,23 @@
 
                 <!-- Quick Actions -->
                 <div class="mt-4 px-3">
-                    <h6 class="text-muted text-uppercase fw-bold">Quick Actions</h6>
+                    <h6 class="text-muted text-uppercase fw-bold"><?php echo __('quick_actions'); ?></h6>
 
                     <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
                         <button class="btn btn-primary btn-sm w-100 mb-2" onclick="quickAddPatient()">
-                            <i class="bi bi-person-plus"></i> Add Patient
+                            <i class="bi bi-person-plus"></i> <?php echo __('add_patient'); ?>
                         </button>
                     <?php endif; ?>
 
                     <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST', 'DOCTOR'])): ?>
                         <button class="btn btn-success btn-sm w-100 mb-2" onclick="quickAddAppointment()">
-                            <i class="bi bi-calendar-plus"></i> New Appointment
+                            <i class="bi bi-calendar-plus"></i> <?php echo __('new_appointment'); ?>
                         </button>
                     <?php endif; ?>
 
                     <?php if (hasAnyRole(['ADMIN', 'DOCTOR'])): ?>
                         <button class="btn btn-info btn-sm w-100" onclick="quickAddPrescription()">
-                            <i class="bi bi-prescription"></i> New Prescription
+                            <i class="bi bi-prescription"></i> <?php echo __('new_prescription'); ?>
                         </button>
                     <?php endif; ?>
                 </div>
@@ -451,10 +451,10 @@
             // Display any error messages from URL
             if (isset($_GET['error'])) {
                 $errorMessage = match ($_GET['error']) {
-                    'access_denied' => 'Access denied. You do not have permission to view this page.',
-                    'session_expired' => 'Your session has expired. Please login again.',
-                    'invalid_request' => 'Invalid request.',
-                    default => 'An error occurred.'
+                    'access_denied' => __('access_denied'),
+                    'session_expired' => __('session_expired'),
+                    'invalid_request' => __('invalid_request'),
+                    default => __('operation_failed')
                 };
                 showAlert($errorMessage, 'danger');
             }
@@ -462,10 +462,10 @@
             // Display any success messages from URL
             if (isset($_GET['success'])) {
                 $successMessage = match ($_GET['success']) {
-                    'updated' => 'Record updated successfully.',
-                    'created' => 'Record created successfully.',
-                    'deleted' => 'Record deleted successfully.',
-                    default => 'Operation completed successfully.'
+                    'updated' => __('record_updated_success'),
+                    'created' => __('record_created_success'),
+                    'deleted' => __('record_deleted_success'),
+                    default => __('operation_successful')
                 };
                 showAlert($successMessage, 'success');
             }

@@ -37,7 +37,7 @@
         // Confirm delete actions
         document.addEventListener('click', function(e) {
             if (e.target.classList.contains('btn-delete') || e.target.closest('.btn-delete')) {
-                if (!confirm('<?php echo __("messages.confirm_delete"); ?>')) {
+                if (!confirm('<?php echo addslashes(__("messages.confirm_delete")); ?>')) {
                     e.preventDefault();
                     return false;
                 }
@@ -55,7 +55,7 @@
         window.addEventListener('beforeunload', function(e) {
             if (formChanged) {
                 e.preventDefault();
-                e.returnValue = '<?php echo __("messages.unsaved_changes"); ?>';
+                e.returnValue = '<?php echo addslashes(__("messages.unsaved_changes")); ?>';
                 return e.returnValue;
             }
         });

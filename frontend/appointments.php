@@ -1,8 +1,9 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/language.php';
 requireAnyRole(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']);
 
-$pageTitle = 'Appointment Management';
+$pageTitle = __('appointment_management');
 $user = getCurrentUser();
 $action = $_GET['action'] ?? 'list';
 
@@ -30,10 +31,10 @@ function getPatientName($patientId, $patients) {
                 if (!empty($fullName)) return $fullName;
             }
             // Fallback to Patient ID if no name found
-            return 'Patient #' . substr($patientId, 0, 8);
+            return sprintf(__('patient_fallback_id'), substr($patientId, 0, 8));
         }
     }
-    return 'Unknown Patient';
+    return __('unknown_patient');
 }
 
 function getDoctorName($doctorId, $users) {
@@ -54,10 +55,10 @@ function getDoctorName($doctorId, $users) {
                 return explode('@', $user['email'])[0];
             }
             // Fallback to Doctor ID if no name found
-            return 'Doctor #' . substr($doctorId, 0, 8);
+            return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
         }
     }
-    return 'Unknown Doctor';
+    return __('unknown_doctor');
 }
 
 // Get search and filter parameters
@@ -69,7 +70,7 @@ $offset = ($page - 1) * $limit;
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid CSRF token.';
+        $error = __('invalid_csrf_token');
     } else {
         $token = $_SESSION['token'];
         
@@ -86,10 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $response = makeApiCall(APPOINTMENT_SERVICE_URL, 'POST', $appointmentData, $token);
             
             if ($response['status_code'] === 201) {
-                $success = 'Appointment created successfully.';
+                $success = __('appointment_created_success');
                 $action = 'list'; // Switch back to list view
             } else {
-                $error = handleApiError($response) ?: 'Failed to create appointment.';
+                $error = handleApiError($response) ?: __('failed_to_create_appointment');
             }
         } elseif ($action === 'edit' && isset($_POST['id'])) {
             // Update appointment info
@@ -107,18 +108,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isset($_POST['status'])) {
                     $statusData = ['status' => sanitize($_POST['status'])];
                     $statusResponse = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId . '/status', 'PATCH', $statusData, $token);
-                    if ($statusResponse['status_code'] === 200) {
-                        $success = 'Appointment updated successfully.';
+                        if ($statusResponse['status_code'] === 200) {
+                        $success = __('appointment_updated_success');
                         $action = 'list';
                     } else {
-                        $error = handleApiError($statusResponse) ?: 'Failed to update appointment status.';
+                        $error = handleApiError($statusResponse) ?: __('failed_to_update_appointment_status');
                     }
                 } else {
-                    $success = 'Appointment updated successfully.';
+                    $success = __('appointment_updated_success');
                     $action = 'list';
                 }
             } else {
-                $error = handleApiError($response) ?: 'Failed to update appointment.';
+                $error = handleApiError($response) ?: __('failed_to_update_appointment');
             }
         }
     }
@@ -132,9 +133,9 @@ if ($action === 'delete' && isset($_GET['id'])) {
     $response = makeApiCall(APPOINTMENT_SERVICE_URL . '/' . $appointmentId, 'DELETE', null, $token);
     
     if ($response['status_code'] === 200 || $response['status_code'] === 204) {
-        $success = 'Appointment deleted successfully.';
+    $success = __('appointment_deleted_success');
     } else {
-        $error = handleApiError($response) ?: 'Failed to delete appointment.';
+    $error = handleApiError($response) ?: __('failed_to_delete_appointment');
     }
     $action = 'list';
 }
@@ -189,7 +190,7 @@ try {
                 $pagination = paginate($page, $totalPages, $baseUrl);
             }
         } else {
-            $error = handleApiError($response) ?: 'Failed to load appointments.';
+            $error = handleApiError($response) ?: __('failed_to_load_appointments');
         }
     } elseif (($action === 'edit' || $action === 'view') && isset($_GET['id'])) {
         $appointmentId = $_GET['id'];
@@ -197,7 +198,7 @@ try {
         if ($response['status_code'] === 200) {
             $appointment = $response['data'];
         } else {
-            $error = handleApiError($response) ?: 'Appointment not found.';
+            $error = handleApiError($response) ?: __('appointment_not_found');
         }
     }
     
@@ -256,7 +257,7 @@ try {
     }
     
 } catch (Exception $e) {
-    $error = 'System error: ' . $e->getMessage();
+    $error = sprintf(__('system_error_with_message'), $e->getMessage());
 }
 
 // Start output buffering for page content
@@ -268,16 +269,16 @@ ob_start();
     <div>
         <h1 class="h3 mb-1">
             <i class="bi bi-calendar-check"></i>
-            Appointment Management
+            <?php echo __('appointment_management'); ?>
         </h1>
-        <p class="text-muted mb-0">Schedule and manage patient appointments</p>
+        <p class="text-muted mb-0"><?php echo __('appointment_management_description'); ?></p>
     </div>
     
     <?php if ($action === 'list' && hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
     <div>
         <a href="appointments.php?action=add" class="btn btn-primary">
             <i class="bi bi-calendar-plus"></i>
-            Schedule Appointment
+            <?php echo __('schedule_appointment'); ?>
         </a>
     </div>
     <?php endif; ?>
@@ -286,14 +287,14 @@ ob_start();
 <?php if ($error): ?>
     <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle"></i>
-        <?php echo $error; ?>
+    <?php echo htmlspecialchars($error); ?>
     </div>
 <?php endif; ?>
 
 <?php if ($success): ?>
     <div class="alert alert-success">
         <i class="bi bi-check-circle"></i>
-        <?php echo $success; ?>
+    <?php echo htmlspecialchars($success); ?>
     </div>
 <?php endif; ?>
 
@@ -305,7 +306,7 @@ ob_start();
             <div class="col-md-6">
                 <h5 class="mb-0">
                     <i class="bi bi-list"></i>
-                    Appointments List
+                    <?php echo __('appointment_list'); ?>
                     <?php if (isset($totalAppointments) && $totalAppointments > 0): ?>
                     <span class="badge bg-primary ms-2"><?php echo $totalAppointments; ?></span>
                     <?php endif; ?>
@@ -314,11 +315,11 @@ ob_start();
             <div class="col-md-6">
                 <!-- Search Form -->
                 <form method="GET" class="d-flex">
-                    <input type="text" 
-                           class="form-control form-control-sm me-2" 
-                           name="search" 
-                           placeholder="Search appointments..." 
-                           value="<?php echo htmlspecialchars($search); ?>">
+              <input type="text" 
+                  class="form-control form-control-sm me-2" 
+                  name="search" 
+                  placeholder="<?php echo __('search_appointments'); ?>" 
+                  value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-search"></i>
                     </button>
@@ -337,40 +338,40 @@ ob_start();
             <table class="table table-hover mb-0">
                 <thead class="table-dark">
                     <tr>
-                        <th class="border-0">
-                            <i class="bi bi-hash me-1"></i>ID
-                        </th>
-                        <th class="border-0">
-                            <i class="bi bi-person me-1"></i>Patient
-                        </th>
-                        <th class="border-0">
-                            <i class="bi bi-person-badge me-1"></i>Doctor
-                        </th>
-                        <th class="border-0">
-                            <i class="bi bi-calendar-event me-1"></i>Date & Time
-                        </th>
-                        <th class="border-0">
-                            <i class="bi bi-clock me-1"></i>Duration
-                        </th>
-                        <th class="border-0">
-                            <i class="bi bi-flag me-1"></i>Status
-                        </th>
-                        <th class="border-0">
-                            <i class="bi bi-chat-text me-1"></i>Reason
-                        </th>
-                        <th class="border-0 text-center">
-                            <i class="bi bi-gear me-1"></i>Actions
-                        </th>
+                            <th class="border-0">
+                                <i class="bi bi-hash me-1"></i><?php echo __('id'); ?>
+                            </th>
+                            <th class="border-0">
+                                <i class="bi bi-person me-1"></i><?php echo __('patient'); ?>
+                            </th>
+                            <th class="border-0">
+                                <i class="bi bi-person-badge me-1"></i><?php echo __('doctor'); ?>
+                            </th>
+                            <th class="border-0">
+                                <i class="bi bi-calendar-event me-1"></i><?php echo __('date'); ?> &amp; <?php echo __('time'); ?>
+                            </th>
+                            <th class="border-0">
+                                <i class="bi bi-clock me-1"></i><?php echo __('duration'); ?>
+                            </th>
+                            <th class="border-0">
+                                <i class="bi bi-flag me-1"></i><?php echo __('status'); ?>
+                            </th>
+                            <th class="border-0">
+                                <i class="bi bi-chat-text me-1"></i><?php echo __('reason'); ?>
+                            </th>
+                            <th class="border-0 text-center">
+                                <i class="bi bi-gear me-1"></i><?php echo __('actions'); ?>
+                            </th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($appointments)): ?>
+                            <?php if (empty($appointments)): ?>
                     <tr>
                         <td colspan="8" class="text-center py-5">
                             <i class="bi bi-calendar-x text-muted" style="font-size: 3rem;"></i>
-                            <p class="text-muted mt-2 mb-0">No appointments found</p>
+                            <p class="text-muted mt-2 mb-0"><?php echo __("no_appointments_found"); ?></p>
                             <?php if ($search): ?>
-                            <small class="text-muted">Try adjusting your search criteria</small>
+                            <small class="text-muted"><?php echo __('try_adjust_search'); ?></small>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -382,22 +383,22 @@ ob_start();
                     $doctorName = getDoctorName($appt['doctorId'], $users);
                     
                     // Format dates
-                    $startTime = isset($appt['startTime']) ? date('M j, Y H:i', strtotime($appt['startTime'])) : 'N/A';
-                    $duration = 'N/A';
+                    $startTime = isset($appt['startTime']) ? date('M j, Y H:i', strtotime($appt['startTime'])) : __('not_provided');
+                    $duration = __('not_provided');
                     if (isset($appt['startTime']) && isset($appt['endTime'])) {
                         $start = strtotime($appt['startTime']);
                         $end = strtotime($appt['endTime']);
                         $minutes = ($end - $start) / 60;
-                        $duration = $minutes . ' min';
+                        $duration = sprintf(__('minutes_format'), $minutes);
                     }
                     
                     // Status styling
                     $statusClass = getAppointmentStatusClass($appt['status'] ?? 'UNKNOWN');
-                    $statusText = ucfirst(strtolower($appt['status'] ?? 'Unknown'));
+                    $statusText = ucfirst(strtolower($appt['status'] ?? __('unknown')));
                     ?>
                     <tr>
                         <td class="align-middle">
-                            <span class="text-monospace small"><?php echo htmlspecialchars(substr($appt['id'] ?? 'N/A', 0, 8)); ?>...</span>
+                            <span class="text-monospace small"><?php echo htmlspecialchars(substr($appt['id'] ?? __('not_provided'), 0, 8)); ?>...</span>
                         </td>
                         <td class="align-middle">
                             <div class="d-flex align-items-center">
@@ -406,7 +407,7 @@ ob_start();
                                 </div>
                                 <div>
                                     <div class="fw-bold text-dark"><?php echo htmlspecialchars($patientName); ?></div>
-                                    <small class="text-muted">ID: <?php echo htmlspecialchars(substr($appt['patientId'] ?? 'N/A', 0, 8)); ?>...</small>
+                                    <small class="text-muted"><?php echo __('patient_id_label'); ?>: <?php echo htmlspecialchars(substr($appt['patientId'] ?? __('not_provided'), 0, 8)); ?>...</small>
                                 </div>
                             </div>
                         </td>
@@ -416,8 +417,8 @@ ob_start();
                                     <?php echo strtoupper(substr($doctorName, 0, 1)); ?>
                                 </div>
                                 <div>
-                                    <div class="fw-bold text-dark">Dr. <?php echo htmlspecialchars($doctorName); ?></div>
-                                    <small class="text-muted">ID: <?php echo htmlspecialchars(substr($appt['doctorId'] ?? 'N/A', 0, 8)); ?>...</small>
+                                    <div class="fw-bold text-dark"><?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctorName)); ?></div>
+                                    <small class="text-muted"><?php echo __('doctor_id_label'); ?>: <?php echo htmlspecialchars(substr($appt['doctorId'] ?? __('not_provided'), 0, 8)); ?>...</small>
                                 </div>
                             </div>
                         </td>
@@ -432,29 +433,29 @@ ob_start();
                             <span class="<?php echo $statusClass; ?>"><?php echo $statusText; ?></span>
                         </td>
                         <td class="align-middle">
-                            <div class="text-truncate" style="max-width: 150px;" title="<?php echo htmlspecialchars($appt['reason'] ?? 'No reason provided'); ?>">
-                                <?php echo htmlspecialchars($appt['reason'] ?? 'No reason provided'); ?>
+                                <div class="text-truncate" style="max-width: 150px;" title="<?php echo htmlspecialchars($appt['reason'] ?? __('no_reason_provided')); ?>">
+                                <?php echo htmlspecialchars($appt['reason'] ?? __('no_reason_provided')); ?>
                             </div>
                         </td>
                         <td class="align-middle text-center">
                             <div class="btn-group btn-group-sm">
-                                <a href="appointments.php?action=view&id=<?php echo $appt['id']; ?>" 
-                                   class="btn btn-outline-primary btn-sm" 
-                                   title="View Details">
+                                          <a href="appointments.php?action=view&id=<?php echo $appt['id']; ?>" 
+                                              class="btn btn-outline-primary btn-sm" 
+                                              title="<?php echo __('view'); ?>">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
-                                <a href="appointments.php?action=edit&id=<?php echo $appt['id']; ?>" 
-                                   class="btn btn-outline-warning btn-sm" 
-                                   title="Edit">
+                                          <a href="appointments.php?action=edit&id=<?php echo $appt['id']; ?>" 
+                                              class="btn btn-outline-warning btn-sm" 
+                                              title="<?php echo __('edit'); ?>">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <?php endif; ?>
                                 <?php if (hasRole('ADMIN')): ?>
-                                <button type="button" 
-                                        class="btn btn-outline-danger btn-sm" 
-                                        onclick="confirmDelete('<?php echo $appt['id']; ?>', '<?php echo htmlspecialchars($patientName); ?>')" 
-                                        title="Delete">
+                <button type="button" 
+                    class="btn btn-outline-danger btn-sm" 
+                    onclick="confirmDelete('<?php echo $appt['id']; ?>', '<?php echo addslashes($patientName); ?>')" 
+                    title="<?php echo __('delete'); ?>">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <?php endif; ?>
@@ -472,8 +473,8 @@ ob_start();
     <?php if ($pagination): ?>
     <div class="card-footer d-flex justify-content-between align-items-center">
         <div class="text-muted">
-            Showing <?php echo (($page - 1) * $limit + 1); ?> to <?php echo min($page * $limit, $totalAppointments ?? 0); ?> of <?php echo $totalAppointments ?? 0; ?> appointments
-        </div>
+                <?php echo sprintf(__('showing_appointments_range'), (($page - 1) * $limit + 1), min($page * $limit, $totalAppointments ?? 0), $totalAppointments ?? 0); ?>
+            </div>
         <nav>
             <?php echo $pagination; ?>
         </nav>
@@ -487,9 +488,9 @@ ob_start();
     <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">
+                    <h5 class="mb-0">
                     <i class="bi bi-<?php echo $action === 'add' ? 'calendar-plus' : 'pencil'; ?>"></i>
-                    <?php echo $action === 'add' ? 'Schedule New Appointment' : 'Edit Appointment'; ?>
+                    <?php echo $action === 'add' ? __('schedule_appointment') : __('edit_appointment'); ?>
                 </h5>
             </div>
             
@@ -502,37 +503,37 @@ ob_start();
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="patientId" class="form-label">Patient *</label>
+                            <label for="patientId" class="form-label"><?php echo __('patient'); ?> *</label>
                             <select class="form-select" id="patientId" name="patientId" required>
-                                <option value="">Select a patient...</option>
+                                <option value=""><?php echo __('select_patient'); ?></option>
                                 <?php 
                                 $preselectPatientId = $_GET['patient_id'] ?? ($action === 'edit' ? $appointment['patientId'] : '');
                                 foreach ($patients as $patient): ?>
                                 <option value="<?php echo $patient['id']; ?>" 
                                         <?php echo ($patient['id'] == $preselectPatientId) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($patient['fullName'] ?? 'Unknown'); ?>
+                                    <?php echo htmlspecialchars($patient['fullName'] ?? __('unknown')); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="doctorId" class="form-label">Doctor *</label>
+                            <label for="doctorId" class="form-label"><?php echo __('doctor'); ?> *</label>
                             <select class="form-select" id="doctorId" name="doctorId" required>
-                                <option value="">Select a doctor...</option>
+                                <option value=""><?php echo __('select_doctor'); ?></option>
                                 <?php 
                                 $preselectDoctorId = $_GET['doctor_id'] ?? (($user['role'] === 'DOCTOR') ? $user['id'] : (($action === 'edit') ? $appointment['doctorId'] : ''));
                                 foreach ($users as $doctor): ?>
-                                <option value="<?php echo $doctor['id']; ?>" 
-                                        <?php echo ($doctor['id'] == $preselectDoctorId) ? 'selected' : ''; ?> >
-                                    Dr. <?php echo htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? 'Unknown'); ?>
+                                        <option value="<?php echo $doctor['id']; ?>">
+                                            <?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? __('unknown'))); ?>
+                                        </option>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="startTime" class="form-label">Start Date & Time *</label>
+                            <label for="startTime" class="form-label"><?php echo __('appointment_date'); ?> &amp; <?php echo __('appointment_time'); ?> *</label>
                             <input type="datetime-local" 
                                    class="form-control" 
                                    id="startTime" 
@@ -542,7 +543,7 @@ ob_start();
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="endTime" class="form-label">End Date & Time *</label>
+                            <label for="endTime" class="form-label"><?php echo __('appointment_date'); ?> &amp; <?php echo __('appointment_time'); ?> *</label>
                             <input type="datetime-local" 
                                    class="form-control" 
                                    id="endTime" 
@@ -553,32 +554,32 @@ ob_start();
                         
                         <?php if ($action === 'edit'): ?>
                         <div class="col-md-6 mb-3">
-                            <label for="status" class="form-label">Status</label>
+                            <label for="status" class="form-label"><?php echo __('status'); ?></label>
                             <select class="form-select" id="status" name="status">
-                                <option value="SCHEDULED" <?php echo ($appointment['status'] ?? '') === 'SCHEDULED' ? 'selected' : ''; ?>>Scheduled</option>
-                                <option value="CONFIRMED" <?php echo ($appointment['status'] ?? '') === 'CONFIRMED' ? 'selected' : ''; ?>>Confirmed</option>
-                                <option value="COMPLETED" <?php echo ($appointment['status'] ?? '') === 'COMPLETED' ? 'selected' : ''; ?>>Completed</option>
-                                <option value="CANCELED" <?php echo ($appointment['status'] ?? '') === 'CANCELED' ? 'selected' : ''; ?>>Canceled</option>
+                                <option value="SCHEDULED" <?php echo ($appointment['status'] ?? '') === 'SCHEDULED' ? 'selected' : ''; ?>><?php echo __('pending'); ?></option>
+                                <option value="CONFIRMED" <?php echo ($appointment['status'] ?? '') === 'CONFIRMED' ? 'selected' : ''; ?>><?php echo __('confirmed'); ?></option>
+                                <option value="COMPLETED" <?php echo ($appointment['status'] ?? '') === 'COMPLETED' ? 'selected' : ''; ?>><?php echo __('completed'); ?></option>
+                                <option value="CANCELED" <?php echo ($appointment['status'] ?? '') === 'CANCELED' ? 'selected' : ''; ?>><?php echo __('cancelled'); ?></option>
                             </select>
                         </div>
                         <?php endif; ?>
                         
                         <div class="col-12 mb-3">
-                            <label for="reason" class="form-label">Reason for Visit</label>
+                            <label for="reason" class="form-label"><?php echo __('reason'); ?></label>
                             <textarea class="form-control" 
                                       id="reason" 
                                       name="reason" 
                                       rows="3" 
-                                      placeholder="Enter the reason for this appointment..."><?php echo $action === 'edit' ? htmlspecialchars($appointment['reason'] ?? '') : ''; ?></textarea>
+                                      placeholder="<?php echo __('appointment_reason_placeholder'); ?>"><?php echo $action === 'edit' ? htmlspecialchars($appointment['reason'] ?? '') : ''; ?></textarea>
                         </div>
                     </div>
                     
                     <div class="d-flex justify-content-end gap-2">
                         <a href="appointments.php" class="btn btn-outline-secondary">
-                            <i class="bi bi-x"></i> Cancel
+                            <i class="bi bi-x"></i> <?php echo __('cancel'); ?>
                         </a>
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check"></i> <?php echo $action === 'add' ? 'Schedule Appointment' : 'Update Appointment'; ?>
+                            <i class="bi bi-check"></i> <?php echo $action === 'add' ? __('schedule_appointment') : __('update_appointment'); ?>
                         </button>
                     </div>
                 </form>
@@ -596,16 +597,16 @@ ob_start();
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="bi bi-calendar-event"></i>
-                        Appointment Details
+                        <?php echo __('appointment_details'); ?>
                     </h5>
                     <div>
                         <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
                         <a href="appointments.php?action=edit&id=<?php echo $appointment['id']; ?>" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-pencil"></i> Edit
+                            <i class="bi bi-pencil"></i> <?php echo __('edit'); ?>
                         </a>
                         <?php endif; ?>
                         <a href="appointments.php" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-arrow-left"></i> Back to List
+                            <i class="bi bi-arrow-left"></i> <?php echo __('back_to_list'); ?>
                         </a>
                     </div>
                 </div>
@@ -614,45 +615,45 @@ ob_start();
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Appointment ID</label>
+                        <label class="form-label text-muted"><?php echo __('appointment_id_label') ?? __('id'); ?></label>
                         <p class="fw-bold text-monospace"><?php echo htmlspecialchars($appointment['id']); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Status</label>
-                        <p><span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($appointment['status'] ?? 'Unknown')); ?></span></p>
+                        <label class="form-label text-muted"><?php echo __("status"); ?></label>
+                        <p><span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($appointment['status'] ?? __('unknown'))); ?></span></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Patient</label>
+                        <label class="form-label text-muted"><?php echo __("patient"); ?></label>
                         <p class="fw-bold"><?php echo htmlspecialchars(getPatientName($appointment['patientId'], $patients)); ?></p>
-                        <small class="text-muted">ID: <?php echo htmlspecialchars($appointment['patientId']); ?></small>
+                        <small class="text-muted"><?php echo __('patient_id_label'); ?>: <?php echo htmlspecialchars($appointment['patientId']); ?></small>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Doctor</label>
-                        <p class="fw-bold">Dr. <?php echo htmlspecialchars(getDoctorName($appointment['doctorId'], $users)); ?></p>
-                        <small class="text-muted">ID: <?php echo htmlspecialchars($appointment['doctorId']); ?></small>
+                        <label class="form-label text-muted"><?php echo __("doctor"); ?></label>
+                        <p class="fw-bold"><?php echo sprintf(__('doctor_title_name'), htmlspecialchars(getDoctorName($appointment['doctorId'], $users))); ?></p>
+                        <small class="text-muted"><?php echo __('doctor_id_label') ?? __('id'); ?>: <?php echo htmlspecialchars($appointment['doctorId']); ?></small>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">Start Date & Time</label>
-                        <p class="fw-bold"><?php echo isset($appointment['startTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['startTime'])) : 'N/A'; ?></p>
+                        <label class="form-label text-muted"><?php echo __('start_date_time'); ?></label>
+                        <p class="fw-bold"><?php echo isset($appointment['startTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['startTime'])) : __('not_provided'); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
-                        <label class="form-label text-muted">End Date & Time</label>
-                        <p class="fw-bold"><?php echo isset($appointment['endTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['endTime'])) : 'N/A'; ?></p>
+                        <label class="form-label text-muted"><?php echo __('end_date_time'); ?></label>
+                        <p class="fw-bold"><?php echo isset($appointment['endTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['endTime'])) : __('not_provided'); ?></p>
                     </div>
                     
                     <div class="col-12 mb-3">
-                        <label class="form-label text-muted">Reason for Visit</label>
+                        <label class="form-label text-muted"><?php echo __('reason') ?? __('reason'); ?></label>
                         <div class="card bg-light">
                             <div class="card-body">
                                 <?php if ($appointment['reason'] ?? false): ?>
                                     <p class="mb-0"><?php echo nl2br(htmlspecialchars($appointment['reason'])); ?></p>
                                 <?php else: ?>
-                                    <p class="mb-0 text-muted">No reason provided.</p>
+                                    <p class="mb-0 text-muted"><?php echo __('no_reason_provided'); ?></p>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -662,8 +663,8 @@ ob_start();
                 <!-- Action Buttons -->
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
-                    <a href="appointments.php?action=edit&id=<?php echo $appointment['id']; ?>" class="btn btn-primary">
-                        <i class="bi bi-pencil"></i> Edit Appointment
+                        <a href="appointments.php?action=edit&id=<?php echo $appointment['id']; ?>" class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> <?php echo __('edit_appointment'); ?>
                     </a>
                     <?php endif; ?>
                 </div>
@@ -679,10 +680,10 @@ ob_start();
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="bi bi-calendar-x text-muted" style="font-size: 4rem;"></i>
-                <h3 class="mt-3 text-muted">Appointment Not Found</h3>
-                <p class="text-muted">The appointment you're looking for could not be found or you don't have permission to view it.</p>
+                <h3 class="mt-3 text-muted"><?php echo __('no_appointments_found'); ?></h3>
+                <p class="text-muted"><?php echo __('appointment_not_found_message'); ?></p>
                 <a href="appointments.php" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Back to Appointments List
+                    <i class="bi bi-arrow-left"></i> <?php echo __('back_to_appointments'); ?>
                 </a>
             </div>
         </div>
@@ -696,16 +697,16 @@ ob_start();
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><?php echo __('delete_confirmation'); ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(__('close')); ?>"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete the appointment for <strong id="appointmentPatient"></strong>?</p>
-                <p class="text-danger"><small>This action cannot be undone.</small></p>
+                <p><?php echo __('are_you_sure'); ?> <strong id="appointmentPatient"></strong>?</p>
+                <p class="text-danger"><small><?php echo __('action_cannot_undone'); ?></small></p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete Appointment</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('cancel'); ?></button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger"><?php echo __('delete_appointment'); ?></a>
             </div>
         </div>
     </div>
