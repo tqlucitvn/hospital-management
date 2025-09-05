@@ -5,6 +5,9 @@
     "scripts": {
         "start": "node src/index.js",
         "dev": "nodemon src/index.js",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate dev",
         "prisma:push": "prisma db push",
@@ -19,6 +22,8 @@
         "jsonwebtoken": "^9.0.2"
     },
     "devDependencies": {
+        "jest": "^29.7.0",
+        "supertest": "^7.0.0",
         "nodemon": "^3.1.4",
         "prisma": "^5.17.0"
     }
