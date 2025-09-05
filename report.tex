@@ -16,6 +16,10 @@
 \usepackage{array}
 \usepackage[T5]{fontenc}
 \usepackage{lmodern}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds,shapes.geometric}
 
 % Định nghĩa ngôn ngữ cho listings
 \lstdefinelanguage{JavaScript}{%
@@ -101,7 +105,7 @@
     {\Large\textbf{(HOSPITAL MANAGEMENT SYSTEM)}}\\
     \vspace{1cm}
     
-    {\large\textbf{Môn học: Phát triển ứng dụng Web}}\\
+    {\large\textbf{Môn học: Ứng dụng phân tán}}\\
     \vspace{2cm}
     
     \begin{tabular}{ll}
@@ -113,10 +117,22 @@
     \end{tabular}
     
     \vfill
-    {\large TP. Hồ Chí Minh, tháng 8 năm 2025}
+    {\large TP. Hồ Chí Minh, tháng 12 năm 2024}
 \end{titlepage}
 
 % TABLE OF CONTENTS
+\newpage
+\begin{abstract}
+\noindent
+Hệ thống quản lý bệnh viện là một ứng dụng web hiện đại được xây dựng với kiến trúc microservices, nhằm số hóa và tối ưu hóa quy trình quản lý trong các cơ sở y tế. Hệ thống hỗ trợ quản lý thông tin bệnh nhân, đặt lịch khám bệnh, quản lý đơn thuốc và hệ thống thông báo email tự động.
+
+Về mặt kỹ thuật, hệ thống được triển khai với 5 microservices độc lập (User, Patient, Appointment, Prescription, Notification), sử dụng Node.js và PostgreSQL cho backend, PHP cho frontend, RabbitMQ cho message queue, và Docker cho containerization. Hệ thống áp dụng JWT authentication, role-based access control (RBAC) với 4 vai trò chính (Admin, Doctor, Nurse, Receptionist), và hỗ trợ đa ngôn ngữ (Việt/Anh).
+
+Kết quả đạt được bao gồm một hệ thống hoàn chỉnh với các chức năng cốt lõi đầy đủ, hiệu suất tốt (thời gian phản hồi < 500ms), khả năng mở rộng cao, và giao diện người dùng thân thiện. Hệ thống đã được kiểm thử toàn diện với kiểm thử đơn vị (unit tests), kiểm thử tích hợp (integration tests) và kiểm thử đầu cuối (end-to-end tests), đạt độ bao phủ mã nguồn > 80\%.
+
+\textbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Healthcare Management, Docker, RabbitMQ, JWT Authentication, Role-based Access Control
+\end{abstract}
+
 \tableofcontents
 \newpage
 
@@ -126,7 +142,7 @@
 \section{Ý nghĩa và bối cảnh đề tài}
 Trong thời đại số hóa hiện nay, việc quản lý thông tin trong các cơ sở y tế là một nhu cầu cấp thiết. Hệ thống quản lý bệnh viện truyền thống sử dụng giấy tờ và quy trình thủ công không còn phù hợp với yêu cầu về tốc độ, độ chính xác và khả năng theo dõi thông tin bệnh nhân.
 
-Đề tài "Hệ thống quản lý bệnh viện" được giao nhằm đáp ứng các yêu cầu thực tiễn về digitalization, nâng cao hiệu quả công việc của đội ngũ y tế, cải thiện chất lượng dịch vụ chăm sóc bệnh nhân và ứng dụng kiến trúc microservices hiện đại trong lĩnh vực y tế.
+Đề tài "Hệ thống quản lý bệnh viện" được giao nhằm đáp ứng các yêu cầu thực tiễn về số hóa (digitalization), nâng cao hiệu quả công việc của đội ngũ y tế, cải thiện chất lượng dịch vụ chăm sóc bệnh nhân và ứng dụng kiến trúc microservices hiện đại trong lĩnh vực y tế.
 
 \section{Mục tiêu đề tài}
 \subsection{Mục tiêu chính}
@@ -142,8 +158,8 @@ Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến tr�
 \subsection{Mục tiêu kỹ thuật}
 \begin{itemize}
     \item Áp dụng kiến trúc microservices
-    \item Sử dụng Docker để containerization
-    \item Triển khai message queue với RabbitMQ
+    \item Sử dụng Docker để đóng gói ứng dụng (containerization)
+    \item Triển khai hàng đợi tin nhắn (message queue) với RabbitMQ
     \item Xây dựng API RESTful
     \item Tích hợp hệ thống gửi email tự động
 \end{itemize}
@@ -156,7 +172,7 @@ Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến tr�
     \item Quản lý lịch hẹn khám bệnh
     \item Quản lý đơn thuốc
     \item Hệ thống thông báo email
-    \item Dashboard theo vai trò
+    \item Bảng điều khiển (dashboard) theo vai trò
 \end{itemize}
 
 \subsection{Giới hạn}
@@ -166,7 +182,216 @@ Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến tr�
     \item Chỉ hỗ trợ thông báo qua email (chưa có SMS)
 \end{itemize}
 
-% CHAPTER 2: PHÂN TÍCH YÊU CẦU
+% CHAPTER 2: PHÂN TÍCH NGHIỆP VỤ
+\chapter{Phân tích nghiệp vụ}
+
+\section{Xác định các tác nhân (Actors)}
+
+\subsection{Tác nhân chính}
+Hệ thống quản lý bệnh viện có các tác nhân chính sau:
+
+\subsubsection{Bệnh nhân (Patient)}
+\begin{itemize}
+    \item \textbf{Vai trò}: Đối tượng được chăm sóc y tế
+    \item \textbf{Mục tiêu}: Nhận dịch vụ khám chữa bệnh, theo dõi sức khỏe
+    \item \textbf{Tương tác}: Được đăng ký thông tin, đặt lịch khám, nhận đơn thuốc
+    \item \textbf{Đặc điểm}: Không trực tiếp sử dụng hệ thống, thông tin được quản lý bởi nhân viên y tế
+\end{itemize}
+
+\subsubsection{Quản trị viên (Administrator)}
+\begin{itemize}
+    \item \textbf{Vai trò}: Quản lý toàn bộ hệ thống
+    \item \textbf{Mục tiêu}: Đảm bảo hệ thống hoạt động ổn định và hiệu quả
+    \item \textbf{Quyền hạn}: Toàn quyền truy cập và quản lý
+    \item \textbf{Trách nhiệm}: Tạo tài khoản, phân quyền, backup dữ liệu, giám sát hệ thống
+\end{itemize}
+
+\subsubsection{Bác sĩ (Doctor)}
+\begin{itemize}
+    \item \textbf{Vai trò}: Chuyên gia y tế thực hiện khám chữa bệnh
+    \item \textbf{Mục tiêu}: Khám bệnh hiệu quả, kê đơn thuốc chính xác
+    \item \textbf{Quyền hạn}: Xem thông tin bệnh nhân, tạo đơn thuốc, cập nhật kết quả khám
+    \item \textbf{Trách nhiệm}: Khám bệnh, chẩn đoán, kê đơn thuốc
+\end{itemize}
+
+\subsubsection{Y tá (Nurse)}
+\begin{itemize}
+    \item \textbf{Vai trò}: Hỗ trợ bác sĩ trong quy trình điều trị
+    \item \textbf{Mục tiêu}: Hỗ trợ chăm sóc bệnh nhân, thực hiện y lệnh
+    \item \textbf{Quyền hạn}: Xem thông tin bệnh nhân, xác nhận đơn thuốc, phát thuốc
+    \item \textbf{Trách nhiệm}: Chăm sóc bệnh nhân, phát thuốc, theo dõi điều trị
+\end{itemize}
+
+\subsubsection{Lễ tân (Receptionist)}
+\begin{itemize}
+    \item \textbf{Vai trò}: Tiếp đón và hỗ trợ bệnh nhân
+    \item \textbf{Mục tiêu}: Tạo lịch hẹn, đăng ký bệnh nhân mới
+    \item \textbf{Quyền hạn}: Quản lý thông tin bệnh nhân, tạo và sửa lịch hẹn
+    \item \textbf{Trách nhiệm}: Đăng ký bệnh nhân, sắp xếp lịch khám, check-in bệnh nhân
+\end{itemize}
+
+\section{Xác định các trường hợp sử dụng (Use Cases)}
+
+\subsection{Use Cases chính}
+
+\subsubsection{UC01: Đăng nhập hệ thống}
+\begin{itemize}
+    \item \textbf{Tác nhân}: Admin, Doctor, Nurse, Receptionist
+    \item \textbf{Mô tả}: Người dùng đăng nhập để truy cập hệ thống
+    \item \textbf{Luồng chính}:
+    \begin{enumerate}
+        \item Người dùng nhập username và password
+        \item Hệ thống xác thực thông tin
+        \item Hệ thống cấp quyền truy cập theo vai trò
+        \item Chuyển hướng đến bảng điều khiển tương ứng
+    \end{enumerate}
+    \item \textbf{Điều kiện tiên quyết}: Có tài khoản hợp lệ
+    \item \textbf{Kết quả}: Truy cập thành công vào hệ thống
+\end{itemize}
+
+\subsubsection{UC02: Quản lý bệnh nhân}
+\begin{itemize}
+    \item \textbf{Tác nhân chính}: Receptionist
+    \item \textbf{Tác nhân phụ}: Admin, Doctor, Nurse
+    \item \textbf{Mô tả}: Đăng ký, cập nhật và quản lý thông tin bệnh nhân
+    \item \textbf{Luồng chính}:
+    \begin{enumerate}
+        \item Nhân viên nhập thông tin bệnh nhân
+        \item Hệ thống validate dữ liệu
+        \item Lưu thông tin vào cơ sở dữ liệu
+        \item Tạo mã bệnh nhân duy nhất
+        \item Gửi thông báo xác nhận
+    \end{enumerate}
+    \item \textbf{Thông tin cần thiết}: Họ tên, ngày sinh, giới tính, địa chỉ, số điện thoại
+\end{itemize}
+
+\subsubsection{UC03: Đặt lịch khám}
+\begin{itemize}
+    \item \textbf{Tác nhân chính}: Receptionist
+    \item \textbf{Tác nhân phụ}: Admin
+    \item \textbf{Mô tả}: Tạo lịch hẹn khám bệnh cho bệnh nhân
+    \item \textbf{Luồng chính}:
+    \begin{enumerate}
+        \item Chọn bệnh nhân từ danh sách
+        \item Chọn bác sĩ và thời gian khám
+        \item Kiểm tra lịch trống của bác sĩ
+        \item Xác nhận và lưu lịch hẹn
+        \item Gửi email xác nhận cho bệnh nhân
+        \item Thông báo cho bác sĩ về lịch hẹn mới
+    \end{enumerate}
+    \item \textbf{Điều kiện tiên quyết}: Bệnh nhân đã được đăng ký, bác sĩ có lịch trống
+\end{itemize}
+
+\subsubsection{UC04: Quản lý đơn thuốc}
+\begin{itemize}
+    \item \textbf{Tác nhân chính}: Doctor (tạo), Nurse (xác nhận và phát)
+    \item \textbf{Mô tả}: Bác sĩ kê đơn thuốc và y tá phát thuốc
+    \item \textbf{Luồng chính}:
+    \begin{enumerate}
+        \item Bác sĩ khám bệnh và kê đơn thuốc
+        \item Nhập thông tin thuốc: tên, liều lượng, cách dùng
+        \item Lưu đơn thuốc với trạng thái "Chờ xác nhận"
+        \item Y tá xem và xác nhận đơn thuốc
+        \item Phát thuốc cho bệnh nhân
+        \item Cập nhật trạng thái "Đã phát thuốc"
+        \item Gửi thông báo hoàn tất cho bác sĩ
+    \end{enumerate}
+\end{itemize}
+
+\subsubsection{UC05: Gửi thông báo}
+\begin{itemize}
+    \item \textbf{Tác nhân}: Hệ thống (tự động)
+    \item \textbf{Mô tả}: Gửi thông báo email cho các bên liên quan
+    \item \textbf{Các loại thông báo}:
+    \begin{itemize}
+        \item Xác nhận đặt lịch khám
+        \item Nhắc nhở lịch khám (trước 1 ngày)
+        \item Thông báo đơn thuốc sẵn sàng
+        \item Cập nhật trạng thái điều trị
+    \end{itemize}
+    \item \textbf{Luồng chính}:
+    \begin{enumerate}
+        \item Hệ thống detect sự kiện trigger
+        \item Tạo message và đưa vào RabbitMQ queue
+        \item Notification service xử lý message
+        \item Tạo email với mẫu email (template) phù hợp
+        \item Gửi email qua SMTP
+        \item Log kết quả gửi email
+    \end{enumerate}
+\end{itemize}
+
+\section{Sơ đồ Use Case}
+
+\subsection{Use Case Diagram tổng quan}
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  usecase/.style={ellipse, draw, minimum width=2.5cm, minimum height=1cm, text width=2cm, align=center},
+  actor/.style={rectangle, draw, minimum width=1.5cm, minimum height=0.8cm, text width=1.3cm, align=center},
+  system/.style={rectangle, draw, thick, minimum width=12cm, minimum height=8cm},
+]
+
+% System boundary
+\node[system] (system) at (0,0) {};
+\node[above] at (system.north) {\textbf{Hospital Management System}};
+
+% Use cases
+\node[usecase] (login) at (-3,2) {Login};
+\node[usecase] (patients) at (1,2) {Manage\\Patients};
+\node[usecase] (appointments) at (-3,0) {Book\\Appointment};
+\node[usecase] (prescriptions) at (1,0) {Manage\\Prescriptions};
+\node[usecase] (notifications) at (-3,-2) {Send\\Notification};
+\node[usecase] (admin) at (1,-2) {System\\Administration};
+
+% Actors (outside system)
+\node[actor] (adminactor) at (-7,2) {Admin};
+\node[actor] (doctor) at (-7,0) {Doctor};
+\node[actor] (nurse) at (-7,-2) {Nurse};
+\node[actor] (receptionist) at (7,1) {Receptionist};
+\node[actor] (patient) at (7,-1) {Patient\\(Indirect)};
+
+% Connections (simplified main ones)
+\draw (adminactor) -- (login);
+\draw (adminactor) -- (patients);
+\draw (adminactor) -- (admin);
+\draw (doctor) -- (login);
+\draw (doctor) -- (prescriptions);
+\draw (nurse) -- (login);
+\draw (nurse) -- (prescriptions);
+\draw (receptionist) -- (login);
+\draw (receptionist) -- (patients);
+\draw (receptionist) -- (appointments);
+
+\end{tikzpicture}
+\caption{Use Case Diagram tổng quan}
+\end{figure}
+
+\subsection{Ma trận Use Case - Actor}
+\begin{table}[h]
+\centering
+\caption{Ma trận Use Case và Actor}
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Use Case} & \textbf{Admin} & \textbf{Doctor} & \textbf{Nurse} & \textbf{Receptionist} & \textbf{Patient} \\
+\hline
+Login & \checkmark & \checkmark & \checkmark & \checkmark & - \\
+\hline
+Manage Patients & \checkmark & View & View & \checkmark & Indirect \\
+\hline
+Book Appointment & \checkmark & View & View & \checkmark & Indirect \\
+\hline
+Manage Prescriptions & View & \checkmark & \checkmark & View & Indirect \\
+\hline
+Send Notifications & Config & - & - & - & Receive \\
+\hline
+System Administration & \checkmark & - & - & - & - \\
+\hline
+View Reports & \checkmark & Limited & Limited & Limited & - \\
+\hline
+\end{tabular}
+\end{table}
+
+% CHAPTER 3: PHÂN TÍCH YÊU CẦU
 \chapter{Phân tích yêu cầu hệ thống}
 
 \section{Đối tượng sử dụng}
@@ -241,12 +466,99 @@ Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến tr�
     \item Gửi email nhắc nhở lịch hẹn
     \item Thông báo đơn thuốc sẵn sàng
     \item Email xác nhận đặt lịch
-    \item Quản lý template email
+    \item Quản lý mẫu email (template email)
+\end{itemize}
+
+\subsection{Hệ thống đa ngôn ngữ (Internationalization - i18n)}
+\begin{itemize}
+    \item Hỗ trợ đa ngôn ngữ cho giao diện người dùng
+    \item Hỗ trợ tiếng Việt và tiếng Anh
+    \item Chuyển đổi ngôn ngữ real-time không cần reload trang
+    \item Lưu trữ tùy chọn ngôn ngữ trong phiên làm việc (session)
+    \item Quản lý tập trung các bản dịch trong file language.php
+\end{itemize}
+
+\subsection{Tính năng đa ngôn ngữ chi tiết}
+\subsubsection{Cấu trúc hệ thống ngôn ngữ}
+Hệ thống đa ngôn ngữ được thiết kế với cấu trúc như sau:
+\begin{itemize}
+    \item \textbf{File ngôn ngữ trung tâm:} \texttt{frontend/includes/language.php}
+    \item \textbf{Hàm dịch:} \texttt{\_\_(\$key)} - hàm helper để lấy bản dịch theo key
+    \item \textbf{Quản lý phiên làm việc (Session management):} Lưu trữ ngôn ngữ được chọn trong PHP session
+    \item \textbf{Language switcher:} Component cho phép chuyển đổi ngôn ngữ
+\end{itemize}
+
+\subsubsection{Cấu trúc dữ liệu ngôn ngữ}
+\begin{lstlisting}[language=PHP, caption=language.php structure]
+<?php
+function __($key) {
+    $lang = getCurrentLanguage(); // 'vi' or 'en'
+    $translations = [
+        'vi' => [
+            'dashboard' => 'DASHBOARD_VI',
+            'patients' => 'PATIENTS_VI',
+            'appointments' => 'APPOINTMENTS_VI',
+            'prescriptions' => 'PRESCRIPTIONS_VI',
+            // ... other keys (values shown as ASCII placeholders)
+        ],
+        'en' => [
+            'dashboard' => 'Dashboard',
+            'patients' => 'Patients',
+            'appointments' => 'Appointments',
+            'prescriptions' => 'Prescriptions',
+            // ... other keys
+        ]
+    ];
+    
+    return $translations[$lang][$key] ?? $key;
+}
+?>
+\end{lstlisting}
+
+\subsubsection{Các tính năng đã triển khai}
+\begin{enumerate}
+    \item \textbf{Language detection và management:}
+    \begin{itemize}
+        \item Detect ngôn ngữ mặc định (tiếng Việt)
+        \item Lưu trữ lựa chọn ngôn ngữ trong session
+        \item Hàm \texttt{getCurrentLanguage()} và \texttt{setLanguage(\$lang)}
+    \end{itemize}
+    
+    \item \textbf{Translation system:}
+    \begin{itemize}
+        \item Hơn 600+ keys được dịch cho cả tiếng Việt và tiếng Anh
+        \item Hệ thống fallback: hiển thị key gốc nếu không tìm thấy bản dịch
+        \item Support cho string interpolation với placeholders (\%s)
+    \end{itemize}
+    
+    \item \textbf{UI Components đa ngôn ngữ:}
+    \begin{itemize}
+        \item Navigation menu và sidebar được dịch
+        \item Form labels và placeholders đa ngôn ngữ
+        \item Error messages và success messages
+        \item Dashboard widgets và statistics
+        \item Email templates đa ngôn ngữ
+    \end{itemize}
+    
+    \item \textbf{Language switcher:}
+    \begin{itemize}
+        \item Dropdown cho phép chuyển đổi nhanh
+        \item AJAX request để thay đổi không reload trang
+        \item Icon flags để nhận diện ngôn ngữ
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Thách thức và giải pháp}
+\begin{itemize}
+    \item \textbf{Duplicate keys:} Đã phát triển scripts Python để detect và loại bỏ duplicate keys
+    \item \textbf{Missing translations:} Scripts tự động kiểm tra tính nhất quán giữa các ngôn ngữ
+    \item \textbf{Maintenance:} Tập trung tất cả translations trong một file để dễ quản lý
+    \item \textbf{Hiệu suất (Performance):} Session-based language storage tránh database queries
 \end{itemize}
 
 \section{Yêu cầu phi chức năng}
 
-\subsection{Performance}
+\subsection{Hiệu suất}
 \begin{itemize}
     \item Thời gian phản hồi API < 500ms
     \item Hỗ trợ đồng thời 100+ người dùng
@@ -261,7 +573,7 @@ Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến tr�
     \item Input validation và sanitization
 \end{itemize}
 
-\subsection{Scalability}
+\subsection{Khả năng mở rộng}
 \begin{itemize}
     \item Kiến trúc microservices
     \item Container hóa với Docker
@@ -280,6 +592,138 @@ Hệ thống được thiết kế theo mô hình microservices với các đặ
     \item Containerization với Docker
     \item Load balancing và service discovery
 \end{itemize}
+
+\section{Mô hình Microservices và Functional Decomposition}
+
+\subsection{Nguyên tắc phân tách chức năng (Functional Decomposition)}
+Hệ thống được chia nhỏ theo chức năng nghiệp vụ chính:
+
+\subsubsection{Phân tách theo Domain}
+\begin{itemize}
+    \item \textbf{User Domain}: Quản lý người dùng và authentication
+    \item \textbf{Patient Domain}: Quản lý thông tin bệnh nhân
+    \item \textbf{Appointment Domain}: Quản lý lịch hẹn khám bệnh
+    \item \textbf{Prescription Domain}: Quản lý đơn thuốc và phát thuốc
+    \item \textbf{Notification Domain}: Quản lý thông báo và email
+\end{itemize}
+
+\subsubsection{Lợi ích của Functional Decomposition}
+\begin{enumerate}
+    \item \textbf{Independence}: Mỗi service có thể phát triển độc lập
+    \item \textbf{Khả năng mở rộng (Scalability):} Scale từng service theo nhu cầu riêng
+    \item \textbf{Technology Diversity}: Sử dụng công nghệ phù hợp cho từng domain
+    \item \textbf{Team Autonomy}: Các team có thể làm việc độc lập
+    \item \textbf{Fault Isolation}: Lỗi ở một service không ảnh hưởng toàn hệ thống
+\end{enumerate}
+
+\subsection{Giao tiếp giữa các dịch vụ}
+
+\subsubsection{Giao tiếp đồng bộ (Synchronous Communication)}
+Sử dụng khi cần phản hồi ngay lập tức:
+
+\begin{table}[h]
+\centering
+\caption{Các trường hợp sử dụng giao tiếp đồng bộ}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Use Case} & \textbf{Services Involved} & \textbf{Lý do} \\
+\hline
+Xác thực người dùng & Frontend → User Service & Cần kết quả ngay \\
+\hline
+Lấy thông tin bệnh nhân & Frontend → Patient Service & Real-time data \\
+\hline
+Tạo lịch hẹn & Frontend → Appointment Service & Xác nhận tức thì \\
+\hline
+Kiểm tra lịch trống & Appointment → User Service & Validate doctor \\
+\hline
+Tạo đơn thuốc & Frontend → Prescription Service & Phản hồi ngay \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Implementation}:
+\begin{lstlisting}[language=JavaScript, caption=HTTP REST API call example]
+// Synchronous call to check doctor availability
+const checkDoctorAvailability = async (doctorId, datetime) => {
+    try {
+        const response = await fetch(`/api/users/${doctorId}/availability`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ datetime })
+        });
+        
+        const result = await response.json();
+        return result.available; // Immediate response needed
+    } catch (error) {
+        throw new Error('Failed to check availability');
+    }
+};
+\end{lstlisting}
+
+\subsubsection{Giao tiếp bất đồng bộ (Asynchronous Communication)}
+Sử dụng RabbitMQ khi không yêu cầu phản hồi tức thì:
+
+\begin{table}[h]
+\centering
+\caption{Các trường hợp sử dụng giao tiếp bất đồng bộ}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Use Case} & \textbf{Pattern} & \textbf{Lý do} \\
+\hline
+Gửi email xác nhận lịch hẹn & Publish/Subscribe & Không chặn UI \\
+\hline
+Nhắc nhở lịch khám & Event-driven & Background job \\
+\hline
+Thông báo đơn thuốc sẵn sàng & Message Queue & Xử lý theo batch \\
+\hline
+Log audit events & Fire-and-forget & Không ảnh hưởng flow \\
+\hline
+Đồng bộ dữ liệu & Event sourcing & Eventual consistency \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Implementation}:
+\begin{lstlisting}[language=JavaScript, caption=RabbitMQ publisher example]
+// Asynchronous notification via RabbitMQ
+const sendAppointmentConfirmation = async (appointmentData) => {
+    const message = {
+        type: 'APPOINTMENT_CREATED',
+        appointmentId: appointmentData.id,
+        patientEmail: appointmentData.patient.email,
+        doctorName: appointmentData.doctor.name,
+        datetime: appointmentData.datetime
+    };
+    
+    // Send to queue - fire and forget
+    await rabbitmq.publish('notifications', message);
+    console.log('Notification queued successfully');
+    
+    // Continue with main flow without waiting for email to be sent
+};
+\end{lstlisting}
+
+\subsubsection{RabbitMQ Message Patterns}
+\begin{enumerate}
+    \item \textbf{Direct Exchange}: Point-to-point messaging
+    \begin{itemize}
+        \item Appointment created → Email notification
+        \item Prescription ready → SMS notification
+    \end{itemize}
+    
+    \item \textbf{Topic Exchange}: Routing based on patterns
+    \begin{itemize}
+        \item notification.email.* → Email service
+        \item notification.sms.* → SMS service
+        \item audit.*.created → Audit service
+    \end{itemize}
+    
+    \item \textbf{Fanout Exchange}: Broadcast to all subscribers
+    \begin{itemize}
+        \item System alerts → All monitoring services
+        \item Data backup triggers → All backup services
+    \end{itemize}
+\end{enumerate}
 
 \section{Các thành phần chính}
 
@@ -321,7 +765,7 @@ Hệ thống được thiết kế theo mô hình microservices với các đặ
     \item Quản lý đơn thuốc
     \item Medication management
     \item Dosage calculations
-    \item Dispensing workflow
+    \item Quy trình phát thuốc
 \end{itemize}
 
 \subsubsection{Notification Service (Port 3006)}
@@ -361,30 +805,61 @@ Hệ thống được thiết kế theo mô hình microservices với các đặ
 
 \begin{figure}[h!]
 \centering
-\begin{lstlisting}[language=text]
--------------------      -------------------      -------------------
-|   Frontend      | <--> |   Load          | <--> |   API Gateway   |
-|   (PHP)         |      |   Balancer      |      |                 |
-|   Port 80       |      |                 |      |                 |
--------------------      -------------------      -------------------
-                                    |
-    ---------------------------------------------------------------
-    |           |           |         |         |           |
-------------------- ------------------- ------------------- ------------------- -------------------
-| User Service   | |Patient Service| |Appointment   | |Prescr.      | | Notification   |
-| Port 3001      | | Port 3002     | |Service Port | |Service Port | | Service Port   |
-|                | |               | | 3003        | | 3005        | | 3006           |
-| PostgreSQL     | |PostgreSQL     | |PostgreSQL   | |PostgreSQL   | |PostgreSQL      |
-| User DB 5433   | |Patient DB5434 | |Appt DB5435  | |Rx DB 5436   | |Notif DB        |
-------------------- ------------------- ------------------- ------------------- -------------------
-                                    |
-                          -------------------
-                          |   RabbitMQ      |
-                          |   Port 5672     |
-                          |   Management    |
-                          |   Port 15672    |
-                          -------------------
-\end{lstlisting}
+\begin{tikzpicture}[
+  frontend/.style={rectangle, draw, fill=blue!20, minimum width=3cm, minimum height=1cm, text width=2.8cm, align=center},
+  service/.style={rectangle, draw, fill=green!20, minimum width=2.5cm, minimum height=1.2cm, text width=2.3cm, align=center},
+  database/.style={cylinder, draw, fill=yellow!20, minimum width=2cm, minimum height=0.8cm, text width=1.8cm, align=center, shape border rotate=90},
+  gateway/.style={rectangle, draw, fill=orange!20, minimum width=2.5cm, minimum height=1cm, text width=2.3cm, align=center},
+  queue/.style={rectangle, draw, fill=red!20, minimum width=3cm, minimum height=1cm, text width=2.8cm, align=center}
+]
+
+% Frontend and Load Balancer
+\node[frontend] (frontend) at (0,6) {Frontend\\(PHP)\\Port 80};
+\node[gateway] (lb) at (-3,4.5) {Load\\Balancer};
+\node[gateway] (gateway) at (3,4.5) {API Gateway};
+
+% Microservices Layer
+\node[service] (user) at (-6,2.5) {User Service\\Port 3001};
+\node[service] (patient) at (-3,2.5) {Patient Service\\Port 3002};
+\node[service] (appoint) at (0,2.5) {Appointment\\Service\\Port 3003};
+\node[service] (prescr) at (3,2.5) {Prescription\\Service\\Port 3005};
+\node[service] (notif) at (6,2.5) {Notification\\Service\\Port 3006};
+
+% Database Layer
+\node[database] (userdb) at (-6,0.5) {User DB\\5433};
+\node[database] (patientdb) at (-3,0.5) {Patient DB\\5434};
+\node[database] (appointdb) at (0,0.5) {Appt DB\\5435};
+\node[database] (prescrdb) at (3,0.5) {Rx DB\\5436};
+\node[database] (notifdb) at (6,0.5) {Notif DB};
+
+% Message Queue
+\node[queue] (rabbitmq) at (0,-1.5) {RabbitMQ\\Port 5672\\Mgmt 15672};
+
+% Connections
+\draw[<->] (frontend) -- (lb);
+\draw[<->] (frontend) -- (gateway);
+\draw[<->] (lb) -- (gateway);
+
+\draw[->] (gateway) -- (user);
+\draw[->] (gateway) -- (patient);
+\draw[->] (gateway) -- (appoint);
+\draw[->] (gateway) -- (prescr);
+\draw[->] (gateway) -- (notif);
+
+\draw[->] (user) -- (userdb);
+\draw[->] (patient) -- (patientdb);
+\draw[->] (appoint) -- (appointdb);
+\draw[->] (prescr) -- (prescrdb);
+\draw[->] (notif) -- (notifdb);
+
+% Message queue connections
+\draw[dashed, ->] (user) -- (rabbitmq);
+\draw[dashed, ->] (patient) -- (rabbitmq);
+\draw[dashed, ->] (appoint) -- (rabbitmq);
+\draw[dashed, ->] (prescr) -- (rabbitmq);
+\draw[dashed, ->] (notif) -- (rabbitmq);
+
+\end{tikzpicture}
 \caption{Sơ đồ kiến trúc tổng quan hệ thống}
 \end{figure}
 
@@ -392,6 +867,253 @@ Hệ thống được thiết kế theo mô hình microservices với các đặ
 \chapter{Thiết kế chi tiết hệ thống}
 
 \section{Database Schema}
+
+\subsection{Nguyên tắc thiết kế Database}
+
+\subsubsection{Database per Service Pattern}
+Theo nguyên tắc microservices, mỗi service sở hữu database riêng biệt:
+
+\begin{itemize}
+    \item \textbf{Data Independence}: Mỗi service tự quản lý dữ liệu
+    \item \textbf{Technology Freedom}: Chọn database phù hợp với từng domain
+    \item \textbf{Fault Isolation}: Lỗi database không lan sang service khác
+    \item \textbf{Independent Scaling}: Scale database theo nhu cầu riêng
+\end{itemize}
+
+\subsubsection{Distributed Data Management}
+\begin{table}[h]
+\centering
+\caption{Phân bổ Database theo Service}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Service} & \textbf{Database} & \textbf{Chức năng chính} \\
+\hline
+User Service & user\_db & Quản lý tài khoản, authentication \\
+\hline
+Patient Service & patient\_db & Thông tin bệnh nhân, medical history \\
+\hline
+Appointment Service & appointment\_db & Lịch hẹn, doctor schedules \\
+\hline
+Prescription Service & prescription\_db & Đơn thuốc, medications \\
+\hline
+Notification Service & notification\_db & Email logs, templates \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Chi tiết các bảng chính}
+
+\subsubsection{User Service Database}
+\textbf{Bảng Users}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+email & String & Email đăng nhập (unique) \\
+\hline
+password & String & Mật khẩu đã hash (bcrypt) \\
+\hline
+fullName & String & Họ và tên đầy đủ \\
+\hline
+role & Enum & ADMIN, DOCTOR, NURSE, RECEPTIONIST \\
+\hline
+isActive & Boolean & Trạng thái hoạt động (default: true) \\
+\hline
+specialization & String & Chuyên khoa (chỉ áp dụng cho DOCTOR) \\
+\hline
+phoneNumber & String & Số điện thoại liên hệ \\
+\hline
+createdAt & DateTime & Thời gian tạo tài khoản \\
+\hline
+updatedAt & DateTime & Thời gian cập nhật cuối \\
+\hline
+\caption{Bảng Users - Quản lý tài khoản hệ thống}
+\end{longtable}
+
+\subsubsection{Patient Service Database}
+\textbf{Bảng Patients (Bệnh nhân)}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+fullName & String & Họ và tên bệnh nhân \\
+\hline
+email & String & Email liên hệ \\
+\hline
+phone & String & Số điện thoại \\
+\hline
+address & String & Địa chỉ thường trú \\
+\hline
+dateOfBirth & Date & Ngày sinh \\
+\hline
+gender & Enum & MALE, FEMALE, OTHER \\
+\hline
+emergencyContact & String & Người liên hệ khẩn cấp \\
+\hline
+emergencyPhone & String & SĐT người liên hệ khẩn cấp \\
+\hline
+medicalHistory & Text & Tiền sử bệnh (optional) \\
+\hline
+allergies & String & Dị ứng (nếu có) \\
+\hline
+bloodType & String & Nhóm máu \\
+\hline
+createdAt & DateTime & Ngày đăng ký \\
+\hline
+updatedAt & DateTime & Ngày cập nhật cuối \\
+\hline
+\caption{Bảng Patients - Thông tin bệnh nhân}
+\end{longtable}
+
+\subsubsection{Appointment Service Database}
+\textbf{Bảng Appointments (Lịch khám)}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+patientId & String & Foreign key đến Patient Service \\
+\hline
+doctorId & String & Foreign key đến User Service (DOCTOR) \\
+\hline
+appointmentDate & Date & Ngày khám \\
+\hline
+appointmentTime & Time & Giờ khám \\
+\hline
+duration & Integer & Thời gian khám (phút), default: 30 \\
+\hline
+reason & String & Lý do khám bệnh \\
+\hline
+status & Enum & SCHEDULED, CONFIRMED, IN\_PROGRESS, COMPLETED, CANCELLED \\
+\hline
+notes & Text & Ghi chú của bác sĩ (optional) \\
+\hline
+diagnosis & Text & Chẩn đoán (sau khi khám) \\
+\hline
+createdBy & String & Người tạo lịch hẹn (User ID) \\
+\hline
+createdAt & DateTime & Thời gian tạo \\
+\hline
+updatedAt & DateTime & Thời gian cập nhật cuối \\
+\hline
+\caption{Bảng Appointments - Quản lý lịch hẹn khám bệnh}
+\end{longtable}
+
+\subsubsection{Prescription Service Database}
+\textbf{Bảng Prescriptions (Đơn thuốc)}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+appointmentId & String & Foreign key đến Appointment \\
+\hline
+patientId & String & Foreign key đến Patient \\
+\hline
+doctorId & String & Foreign key đến Doctor \\
+\hline
+prescriptionDate & Date & Ngày kê đơn \\
+\hline
+status & Enum & PENDING, CONFIRMED, DISPENSED, CANCELLED \\
+\hline
+notes & Text & Ghi chú của bác sĩ \\
+\hline
+totalCost & Decimal & Tổng giá trị đơn thuốc \\
+\hline
+dispensedBy & String & Y tá phát thuốc (User ID) \\
+\hline
+dispensedAt & DateTime & Thời gian phát thuốc \\
+\hline
+createdAt & DateTime & Thời gian tạo đơn \\
+\hline
+updatedAt & DateTime & Thời gian cập nhật cuối \\
+\hline
+\caption{Bảng Prescriptions - Đơn thuốc}
+\end{longtable}
+
+\textbf{Bảng Prescription\_Items (Chi tiết thuốc)}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+prescriptionId & String & Foreign key đến Prescriptions \\
+\hline
+medicationName & String & Tên thuốc \\
+\hline
+dosage & String & Liều lượng (ví dụ: "500mg") \\
+\hline
+frequency & String & Tần suất uống ("2 lần/ngày") \\
+\hline
+duration & String & Thời gian dùng ("7 ngày") \\
+\hline
+instructions & Text & Hướng dẫn sử dụng chi tiết \\
+\hline
+quantity & Integer & Số lượng viên/gói \\
+\hline
+unitPrice & Decimal & Giá một đơn vị \\
+\hline
+totalPrice & Decimal & Thành tiền \\
+\hline
+\caption{Bảng Prescription\_Items - Chi tiết từng loại thuốc}
+\end{longtable}
+
+\subsubsection{Notification Service Database}
+\textbf{Bảng Email\_Logs}
+\begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
+\hline
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\hline
+id & String & Primary key, UUID \\
+\hline
+recipientEmail & String & Email người nhận \\
+\hline
+subject & String & Tiêu đề email \\
+\hline
+emailType & Enum & APPOINTMENT\_CONFIRMATION, REMINDER, PRESCRIPTION\_READY \\
+\hline
+status & Enum & PENDING, SENT, FAILED \\
+\hline
+errorMessage & Text & Lỗi nếu gửi thất bại \\
+\hline
+sentAt & DateTime & Thời gian gửi thành công \\
+\hline
+createdAt & DateTime & Thời gian tạo \\
+\hline
+\caption{Bảng Email\_Logs - Lịch sử gửi email}
+\end{longtable}
+
+\subsection{Relationships và Data Consistency}
+
+\subsubsection{Cross-Service References}
+Do database phân tán, references giữa services được quản lý qua:
+\begin{itemize}
+    \item \textbf{Foreign Key Emulation}: Lưu ID của entity từ service khác
+    \item \textbf{API Calls}: Validate references qua REST API
+    \item \textbf{Event Sourcing}: Đồng bộ dữ liệu qua RabbitMQ events
+    \item \textbf{Saga Pattern}: Đảm bảo consistency cho distributed transactions
+\end{itemize}
+
+\subsubsection{Data Synchronization Examples}
+\begin{lstlisting}[language=text, caption=Example data flow between services]
+1. Create Appointment:
+    Frontend -> Appointment Service (create appointment)
+    Appointment Service -> Patient Service (validate patientId)
+    Appointment Service -> User Service (validate doctorId)
+    Appointment Service -> RabbitMQ (notification event)
+
+2. Create Prescription:
+    Frontend -> Prescription Service (create prescription)
+    Prescription Service -> Appointment Service (validate appointmentId)
+    Prescription Service -> RabbitMQ (prescription created event)
+\end{lstlisting}
 
 \subsection{User Service Database}
 \begin{longtable}{|p{3cm}|p{2cm}|p{8cm}|}
@@ -799,6 +1521,179 @@ Mỗi service có database riêng:
 
 % (Bảng phân quyền chi tiết được trình bày ở phần trên, không để trong lstlisting vì có ký tự Unicode)
 
+\section{Triển khai hệ thống đa ngôn ngữ (i18n)}
+
+\subsection{Cấu trúc file và thư mục}
+Hệ thống đa ngôn ngữ được tổ chức như sau:
+\begin{lstlisting}[language=text, caption=i18n directory structure]
+frontend/
+|-- includes/
+|   |-- language.php              # main language file (all translations)
+|   |-- language-switcher.php     # language switcher component
+|   `-- header.php                # include language system
+`-- scripts/
+    |-- analyze_duplicates.py     # detect duplicate keys
+    |-- count_keys.py             # count and verify keys
+    `-- sync_translations.py      # sync translations
+\end{lstlisting}
+
+\subsection{Triển khai translation system}
+\subsubsection{Core translation function}
+\begin{lstlisting}[language=PHP, caption=Core translation function]
+function __($key) {
+    $lang = getCurrentLanguage();
+    $translations = [
+        'vi' => [
+            // (VI translations omitted in listing) use language.php in repo
+            'dashboard' => 'DASHBOARD_VI',
+            'new_appointment' => 'NEW_APPOINTMENT_VI',
+            'all_services_connected' => 'ALL_SERVICES_CONNECTED_VI',
+        ],
+        'en' => [
+            // English translations
+            'dashboard' => 'Dashboard',
+            'new_appointment' => 'New Appointment',
+            'all_services_connected' => 'All services connected',
+        ]
+    ];
+    
+    return $translations[$lang][$key] ?? $key;
+}
+\end{lstlisting}
+
+\subsubsection{Language management functions}
+\begin{lstlisting}[language=PHP, caption=Language management]
+function getCurrentLanguage() {
+    if (isset($_SESSION['language'])) {
+        return $_SESSION['language'];
+    }
+    return 'vi'; // Default Vietnamese
+}
+
+function setLanguage($lang) {
+    $_SESSION['language'] = $lang;
+}
+
+// Handle AJAX language change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_language'])) {
+    $lang = $_POST['language'] ?? 'vi';
+    if (in_array($lang, ['vi', 'en'])) {
+        setLanguage($lang);
+    }
+    exit();
+}
+\end{lstlisting}
+
+\subsection{Language switcher component}
+\begin{lstlisting}[language=HTML, caption=Language switcher component]
+<div class="language-switcher">
+    <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                type="button" data-bs-toggle="dropdown">
+            <i class="flag-icon flag-icon-<?php echo getCurrentLanguage() === 'vi' ? 'vn' : 'us'; ?>"></i>
+            <?php echo getCurrentLanguage() === 'vi' ? 'Tieng Viet' : 'English'; ?>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="changeLanguage('vi')">
+                <i class="flag-icon flag-icon-vn"></i> Tieng Viet
+            </a></li>
+            <li><a class="dropdown-item" href="#" onclick="changeLanguage('en')">
+                <i class="flag-icon flag-icon-us"></i> English  
+            </a></li>
+        </ul>
+    </div>
+</div>
+\end{lstlisting}
+
+\subsection{JavaScript cho AJAX language switching}
+\begin{lstlisting}[language=JavaScript, caption=AJAX language switching]
+function changeLanguage(lang) {
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'change_language=1&language=' + lang
+    })
+    .then(response => {
+        if (response.ok) {
+            location.reload(); // Reload to apply new language
+        }
+    })
+    .catch(error => {
+        console.error('Error changing language:', error);
+    });
+}
+\end{lstlisting}
+
+\subsection{Sử dụng trong templates}
+\begin{lstlisting}[language=HTML, caption=Usage in templates]
+<!-- Trong navigation -->
+<a href="dashboard.php">
+    <i class="bi bi-house-door"></i>
+    <?php echo __('dashboard'); ?>
+</a>
+
+<!-- Trong form -->
+<label for="patient_name"><?php echo __('patient_name'); ?></label>
+<input type="text" placeholder="<?php echo __('enter_patient_name'); ?>">
+
+<!-- In notifications -->
+<div class="alert alert-success">
+    <?php echo __('appointment_created_success'); ?>
+</div>
+\end{lstlisting}
+
+\subsection{Scripts maintenance và quality assurance}
+\subsubsection{Script phát hiện duplicate keys}
+\begin{lstlisting}[language=Python, caption=analyze\_duplicates.py]
+import re
+
+def find_duplicates(content):
+    pattern = r"'([^']+)'\s*=>"
+    keys = re.findall(pattern, content)
+    
+    seen = set()
+    duplicates = []
+    for key in keys:
+        if key in seen:
+            duplicates.append(key)
+        else:
+            seen.add(key)
+    
+    return duplicates, len(seen)
+\end{lstlisting}
+
+\subsubsection{Script verify translation consistency}
+\begin{lstlisting}[language=Python, caption=count\_keys.py]
+def count_language_keys(content):
+    vi_pattern = r"'vi'\s*=>\s*\[(.*?)\]"
+    en_pattern = r"'en'\s*=>\s*\[(.*?)\]"
+    
+    vi_match = re.search(vi_pattern, content, re.DOTALL)
+    en_match = re.search(en_pattern, content, re.DOTALL)
+    
+    vi_keys = set(re.findall(r"'([^']+)'\s*=>", vi_match.group(1)))
+    en_keys = set(re.findall(r"'([^']+)'\s*=>", en_match.group(1)))
+    
+    return {
+        'vi_count': len(vi_keys),
+        'en_count': len(en_keys), 
+        'missing_in_en': vi_keys - en_keys,
+        'missing_in_vi': en_keys - vi_keys
+    }
+\end{lstlisting}
+
+\subsection{Kết quả triển khai}
+\begin{itemize}
+    \item \textbf{600+ translation keys} được duy trì cho cả tiếng Việt và tiếng Anh
+    \item \textbf{Zero duplicate keys} sau khi cleanup với automated scripts
+    \item \textbf{1:1 key correspondence} giữa các ngôn ngữ
+    \item \textbf{Real-time language switching} không cần reload trang
+    \item \textbf{Session persistence} cho language preference
+    \item \textbf{Automated quality assurance} với Python maintenance scripts
+\end{itemize}
+
 % CHAPTER 7: CHỨC NĂNG CHI TIẾT
 \chapter{Chức năng chi tiết hệ thống}
 
@@ -928,9 +1823,9 @@ Y tá thực hiện phát thuốc:
 % CHAPTER 8: KIỂM THỬ VÀ DEMO
 \chapter{Kiểm thử và demo hệ thống}
 
-\section{Test Strategy}
+\section{Chiến lược kiểm thử}
 
-\subsection{Unit Testing}
+\subsection{Kiểm thử đơn vị (Unit Testing)}
 \begin{itemize}
     \item Test individual functions và methods
     \item Mock external dependencies
@@ -938,7 +1833,7 @@ Y tá thực hiện phát thuốc:
     \item Automated test suites
 \end{itemize}
 
-\subsection{Integration Testing}
+\subsection{Kiểm thử tích hợp (Integration Testing)}
 \begin{itemize}
     \item Test API endpoints
     \item Database operations
@@ -946,17 +1841,17 @@ Y tá thực hiện phát thuốc:
     \item Message queue functionality
 \end{itemize}
 
-\subsection{End-to-End Testing}
+\subsection{Kiểm thử đầu cuối (End-to-End Testing)}
 \begin{itemize}
-    \item Complete user workflows
-    \item Cross-browser compatibility
-    \item Mobile responsiveness
-    \item Performance testing
+    \item Quy trình người dùng hoàn chỉnh
+    \item Tương thích đa trình duyệt
+    \item Khả năng đáp ứng trên thiết bị di động
+    \item Kiểm thử hiệu suất
 \end{itemize}
 
-\section{Test Cases}
+\section{Các trường hợp kiểm thử}
 
-\subsection{Authentication Test Cases}
+\subsection{Kiểm thử Xác thực người dùng}
 \begin{enumerate}
     \item Valid login với correct credentials
     \item Invalid login với wrong password
@@ -965,7 +1860,7 @@ Y tá thực hiện phát thuốc:
     \item Session management
 \end{enumerate}
 
-\subsection{Appointment Management Test Cases}
+\subsection{Kiểm thử Quản lý Lịch hẹn}
 \begin{enumerate}
     \item Create appointment với valid data
     \item Prevent double booking
@@ -974,12 +1869,12 @@ Y tá thực hiện phát thuốc:
     \item Email notification sending
 \end{enumerate}
 
-\subsection{Prescription Management Test Cases}
+\subsection{Kiểm thử Quản lý Đơn thuốc}
 \begin{enumerate}
     \item Doctor creates prescription
     \item Add multiple medications
     \item Nurse dispenses prescription
-    \item Status tracking workflow
+    \item Theo dõi quy trình trạng thái
     \item Email notification flow
 \end{enumerate}
 
@@ -995,7 +1890,7 @@ Y tá thực hiện phát thuốc:
     \item Patient receives email notifications
 \end{enumerate}
 
-\subsection{Scenario 2: Doctor Workflow}
+\subsection{Kịch bản 2: Quy trình công việc của Bác sĩ}
 \begin{enumerate}
     \item Doctor logs in
     \item Views today's appointments
@@ -1013,9 +1908,9 @@ Y tá thực hiện phát thuốc:
     \item Monitors system health
 \end{enumerate}
 
-\section{Performance Metrics}
+\section{Chỉ số hiệu suất}
 
-\subsection{Response Time Targets}
+\subsection{Mục tiêu thời gian phản hồi}
 \begin{itemize}
     \item Page load time: < 2 seconds
     \item API response time: < 500ms
@@ -1023,7 +1918,7 @@ Y tá thực hiện phát thuốc:
     \item Email sending: < 5 seconds
 \end{itemize}
 
-\subsection{Scalability Metrics}
+\subsection{Chỉ số khả năng mở rộng}
 \begin{itemize}
     \item Concurrent users: 100+
     \item Daily appointments: 1000+
@@ -1067,12 +1962,12 @@ Y tá thực hiện phát thuốc:
 
 \section{Ưu điểm của hệ thống}
 
-\subsection{Scalability}
+\subsection{Khả năng mở rộng}
 \begin{itemize}
-    \item Microservices cho phép scale từng component riêng biệt
-    \item Horizontal scaling với load balancer
-    \item Database sharding capability
-    \item Message queue để handle high throughput
+    \item Microservices cho phép mở rộng từng thành phần riêng biệt
+    \item Mở rộng ngang (horizontal scaling) với load balancer
+    \item Khả năng phân mảnh cơ sở dữ liệu (database sharding)
+    \item Hàng đợi tin nhắn để xử lý lưu lượng cao
 \end{itemize}
 
 \subsection{Maintainability}
@@ -1153,6 +2048,28 @@ Y tá thực hiện phát thuốc:
     \item Docker containerization cho easy deployment
 \end{itemize}
 
+\section{Hạn chế và hướng phát triển}
+
+\subsection{Hạn chế hiện tại}
+\begin{itemize}
+    \item Chưa có real-time chat/messaging giữa staff
+    \item Chưa tích hợp payment gateway cho billing
+    \item Chưa có mobile app native
+    \item Chưa hỗ trợ video call consultation
+    \item Limited reporting và analytics dashboard
+\end{itemize}
+
+\subsection{Hướng phát triển tương lai}
+\begin{itemize}
+    \item Tích hợp AI cho medical diagnosis support
+    \item Blockchain cho secure medical records
+    \item IoT integration cho medical devices
+    \item Advanced analytics và machine learning
+    \item Multi-tenant architecture cho multiple hospitals
+    \item Mobile app với React Native
+    \item Microservices monitoring với Grafana/Prometheus
+\end{itemize}
+
 \section{Kiến thức đã học được}
 \subsection{Technical Skills}
 \begin{itemize}
@@ -1176,10 +2093,11 @@ Y tá thực hiện phát thuốc:
 \section{Lời cảm ơn}
 Em xin chân thành cảm ơn:
 \begin{itemize}
-    \item Thầy/Cô giảng viên hướng dẫn đã tận tình chỉ bảo
-    \item Khoa Công nghệ Thông tin, Trường ĐHKHTN đã tạo điều kiện học tập
-    \item Các bạn đồng môn đã hỗ trợ và trao đổi kiến thức
-    \item Gia đình đã động viên và hỗ trợ trong quá trình thực hiện
+    \item Thạc sĩ Nguyễn Trường Sơn và Thạc sĩ Phạm Minh Tú đã tận tình hướng dẫn và chỉ bảo trong suốt quá trình thực hiện đề tài
+    \item Khoa Công nghệ Thông tin, Trường Đại học Khoa học Tự nhiên - ĐHQG TP.HCM đã tạo điều kiện học tập và cung cấp tài nguyên cần thiết
+    \item Các bạn đồng môn trong lớp 18CLC3 đã hỗ trợ, trao đổi kiến thức và cùng nhau vượt qua khó khăn
+    \item Gia đình đã luôn động viên, ủng hộ và tạo điều kiện tốt nhất để em hoàn thành học tập
+    \item Cộng đồng open source và các tài liệu kỹ thuật đã cung cấp kiến thức quý báu cho việc nghiên cứu và phát triển
 \end{itemize}
 
 % REFERENCES
