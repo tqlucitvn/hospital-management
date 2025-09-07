@@ -72,6 +72,54 @@ exports.listUsers = async (_req, res) => {
     }
 };
 
+exports.listDoctors = async (_req, res) => {
+    try {
+        const doctors = await prisma.user.findMany({
+            where: { role: 'DOCTOR' },
+            orderBy: { fullName: 'asc' },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                fullName: true,
+                phoneNumber: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+        res.json(doctors);
+    } catch (e) {
+        res.status(500).json({ error: 'Could not list doctors' });
+    }
+};
+
+exports.getMyProfile = async (req, res) => {
+    try {
+        const userId = req.user.id; // from auth middleware
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                fullName: true,
+                phoneNumber: true,
+                address: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json(user);
+    } catch (e) {
+        res.status(500).json({ error: 'Could not get user profile' });
+    }
+};
+
 exports.getUserById = async (req, res) => {
     try {
         const { id } = req.params;

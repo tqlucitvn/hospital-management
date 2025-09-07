@@ -11,6 +11,18 @@ require_once __DIR__ . '/language.php';
 
 $user = getCurrentUser();
 $currentLanguage = getCurrentLanguage();
+
+// Fetch real user data from API for display
+$realUserData = $user;
+if (isset($user['id']) && function_exists('makeApiCall')) {
+    $token = $_SESSION['token'] ?? '';
+    if (!empty($token)) {
+        $userResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+        if ($userResponse['status_code'] === 200 && isset($userResponse['data'])) {
+            $realUserData = $userResponse['data'];
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo $currentLanguage; ?>">
@@ -205,6 +217,7 @@ $currentLanguage = getCurrentLanguage();
             </li>
             <?php endif; ?>
             
+            <?php if (hasRole('ADMIN')): ?>
             <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" 
                    href="settings.php">
@@ -212,6 +225,7 @@ $currentLanguage = getCurrentLanguage();
                     <?php echo __('settings'); ?>
                 </a>
             </li>
+            <?php endif; ?>
         </ul>
     </nav>
     
@@ -255,7 +269,7 @@ $currentLanguage = getCurrentLanguage();
                     <button class="btn btn-outline-secondary dropdown-toggle user-menu" type="button" 
                             id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle"></i>
-                        <?php echo htmlspecialchars($user['fullName'] ?? $user['email'] ?? __('user')); ?>
+                        <?php echo htmlspecialchars($realUserData['fullName'] ?? $realUserData['email'] ?? __('user')); ?>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuDropdown">
                         <li>

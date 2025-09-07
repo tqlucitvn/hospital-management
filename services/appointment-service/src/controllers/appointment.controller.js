@@ -4,12 +4,23 @@ const { publishEvent } = require('../lib/broker');
 
 const EXCHANGE = 'appointment.events';
 const VALID_STATUS = ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELED'];
+
+// Standard forward transitions
 const TRANSITIONS = {
     SCHEDULED: ['CONFIRMED', 'CANCELED'],
     CONFIRMED: ['COMPLETED', 'CANCELED'],
     COMPLETED: [],
     CANCELED: []
 };
+
+// Administrative rollback transitions (with conditions)
+const ADMIN_ROLLBACK_TRANSITIONS = {
+    CONFIRMED: ['SCHEDULED'],  // Admin can rollback CONFIRMED → SCHEDULED
+    COMPLETED: ['CONFIRMED']   // Admin can rollback COMPLETED → CONFIRMED (within time window)
+};
+
+// Time window for rollback (in minutes)
+const ROLLBACK_TIME_WINDOW = 30;
 
 function parseDate(value) {
     const d = new Date(value);
@@ -103,12 +114,47 @@ exports.updateStatus = async (req, res, next) => {
         }
 
         // Kiểm tra chuyển trạng thái hợp lệ
-        if (!TRANSITIONS[current.status].includes(status)) {
+        let isValidTransition = false;
+        let rollbackReason = null;
+
+        // Check standard forward transitions
+        if (TRANSITIONS[current.status].includes(status)) {
+            isValidTransition = true;
+        }
+        // Check administrative rollback transitions
+        else if (req.user && req.user.role === 'ADMIN' && ADMIN_ROLLBACK_TRANSITIONS[current.status]?.includes(status)) {
+            // Additional checks for rollback
+            if (current.status === 'COMPLETED') {
+                // Check time window for COMPLETED → CONFIRMED rollback
+                const updatedAt = await prisma.appointment.findUnique({
+                    where: { id },
+                    select: { updatedAt: true }
+                });
+                const timeSinceUpdate = (new Date() - new Date(updatedAt.updatedAt)) / (1000 * 60); // minutes
+                
+                if (timeSinceUpdate <= ROLLBACK_TIME_WINDOW) {
+                    isValidTransition = true;
+                    rollbackReason = `Admin rollback within ${ROLLBACK_TIME_WINDOW} minute window`;
+                } else {
+                    return res.status(409).json({
+                        error: 'Rollback time window expired',
+                        timeWindow: `${ROLLBACK_TIME_WINDOW} minutes`,
+                        timeSinceUpdate: `${Math.round(timeSinceUpdate)} minutes`
+                    });
+                }
+            } else {
+                isValidTransition = true;
+                rollbackReason = 'Admin rollback authorization';
+            }
+        }
+
+        if (!isValidTransition) {
             return res.status(409).json({
                 error: 'Invalid status transition',
                 from: current.status,
                 to: status,
-                allowed: TRANSITIONS[current.status]
+                allowed: TRANSITIONS[current.status],
+                adminRollback: req.user?.role === 'ADMIN' ? ADMIN_ROLLBACK_TRANSITIONS[current.status] : null
             });
         }
 
@@ -117,12 +163,21 @@ exports.updateStatus = async (req, res, next) => {
             data: { status }
         });
 
-        publishEvent(EXCHANGE, 'appointment.statusUpdated', {
-            type: 'appointment.statusUpdated',
-            id,
-            status,
+        // Enhanced audit logging for rollbacks
+        const eventData = {
+            type: rollbackReason ? 'appointment.statusRolledBack' : 'appointment.statusUpdated',
+            id: appt.id,
+            previousStatus: current.status,
+            newStatus: status,
+            patientId: current.patientId,
+            doctorId: current.doctorId,
+            userId: req.user?.id,
+            userRole: req.user?.role,
+            rollbackReason,
             ts: new Date().toISOString()
-        }).catch(() => { });
+        };
+
+        publishEvent(EXCHANGE, eventData.type, eventData).catch(() => { });
 
         res.json(appt);
     } catch (e) {
@@ -180,6 +235,11 @@ exports.update = async (req, res, next) => {
         
         if (!existing) {
             return res.status(404).json({ error: 'Appointment not found' });
+        }
+
+        // If user is a Doctor, they can only edit their own appointments
+        if (req.user && req.user.role === 'DOCTOR' && req.user.id !== existing.doctorId) {
+            return res.status(403).json({ error: 'Doctors can only edit their own appointments' });
         }
 
         // Check overlap for same doctor (excluding current appointment)

@@ -38,10 +38,14 @@ function getPatientName($patientId, $patients) {
 }
 
 function getDoctorName($doctorId, $users) {
+    // Debug: Log the search
+    error_log("DEBUG getDoctorName - Looking for doctorId: " . $doctorId . ", Users count: " . count($users));
+    
     foreach ($users as $user) {
         if (is_array($user) && isset($user['id']) && $user['id'] == $doctorId) {
             // Check multiple possible field names for doctor name
             if (!empty($user['fullName'])) {
+                error_log("DEBUG getDoctorName - Found doctor: " . $user['fullName']);
                 return $user['fullName'];
             } elseif (!empty($user['name'])) {
                 return $user['name'];
@@ -58,6 +62,7 @@ function getDoctorName($doctorId, $users) {
             return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
         }
     }
+    error_log("DEBUG getDoctorName - Doctor not found, returning unknown_doctor");
     return __('unknown_doctor');
 }
 
@@ -212,19 +217,10 @@ try {
         }
 
         $users = [];
-        $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+        $usersResponse = makeApiCall(USER_SERVICE_URL . '/doctors', 'GET', null, $token);
         if ($usersResponse['status_code'] === 200) {
-            // Support both ['users' => [...]] and direct array
-            if (isset($usersResponse['data']['users']) && is_array($usersResponse['data']['users'])) {
-                $usersRaw = $usersResponse['data']['users'];
-            } elseif (is_array($usersResponse['data'])) {
-                $usersRaw = $usersResponse['data'];
-            } else {
-                $usersRaw = [];
-            }
-            $users = array_values(array_filter($usersRaw, function($user) {
-                return isset($user['role']) && $user['role'] === 'DOCTOR';
-            }));
+            // Doctors endpoint returns array directly
+            $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
         }
         // Nếu là DOCTOR và không có user nào, thêm chính user hiện tại vào $users
         if ($user['role'] === 'DOCTOR') {
@@ -236,7 +232,17 @@ try {
                 }
             }
             if (!$found) {
-                $users[] = $user;
+                // Add current user to users array, fetch latest data from API
+                $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+                error_log("DEBUG Add/Edit form - /me API response: " . json_encode($currentUserResponse));
+                if ($currentUserResponse['status_code'] === 200 && isset($currentUserResponse['data'])) {
+                    $users[] = $currentUserResponse['data'];
+                    error_log("DEBUG Add/Edit form - Added real user data: " . json_encode($currentUserResponse['data']));
+                } else {
+                    // Fallback to session data
+                    $users[] = $user;
+                    error_log("DEBUG Add/Edit form - Fallback to session data: " . json_encode($user));
+                }
             }
         }
     }
@@ -250,9 +256,36 @@ try {
                         (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
         }
         
-        $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+        $usersResponse = makeApiCall(USER_SERVICE_URL . '/doctors', 'GET', null, $token);
         if ($usersResponse['status_code'] === 200) {
             $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
+        }
+        
+        // Nếu là DOCTOR và không có user nào trong list, thêm chính user hiện tại vào $users
+        if ($user['role'] === 'DOCTOR') {
+            $found = false;
+            foreach ($users as $u) {
+                if (isset($u['id']) && $u['id'] == $user['id']) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                // Add current user to users array, fetch latest data from API
+                $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+                if ($currentUserResponse['status_code'] === 200 && isset($currentUserResponse['data'])) {
+                    $users[] = $currentUserResponse['data'];
+                } else {
+                    // Fallback to session data
+                    $users[] = $user;
+                }
+            }
+            
+            // Debug: Log users array for doctor
+            error_log("DEBUG Doctor view - Users count: " . count($users) . ", Current user ID: " . $user['id']);
+            error_log("DEBUG Doctor view - Users: " . json_encode(array_map(function($u) { 
+                return ['id' => $u['id'] ?? 'missing', 'fullName' => $u['fullName'] ?? 'missing', 'email' => $u['email'] ?? 'missing']; 
+            }, $users)));
         }
     }
     
@@ -383,7 +416,7 @@ ob_start();
                     $doctorName = getDoctorName($appt['doctorId'], $users);
                     
                     // Format dates
-                    $startTime = isset($appt['startTime']) ? date('M j, Y H:i', strtotime($appt['startTime'])) : __('not_provided');
+                    $startTime = isset($appt['startTime']) ? formatDateTimeVietnamese(strtotime($appt['startTime'])) : __('not_provided');
                     $duration = __('not_provided');
                     if (isset($appt['startTime']) && isset($appt['endTime'])) {
                         $start = strtotime($appt['startTime']);
@@ -394,7 +427,7 @@ ob_start();
                     
                     // Status styling
                     $statusClass = getAppointmentStatusClass($appt['status'] ?? 'UNKNOWN');
-                    $statusText = ucfirst(strtolower($appt['status'] ?? __('unknown')));
+                    $statusText = getAppointmentStatusText($appt['status'] ?? 'UNKNOWN');
                     ?>
                     <tr>
                         <td class="align-middle">
@@ -424,7 +457,7 @@ ob_start();
                         </td>
                         <td class="align-middle">
                             <div class="fw-bold text-dark"><?php echo $startTime; ?></div>
-                            <small class="text-muted"><?php echo isset($appt['startTime']) ? date('l', strtotime($appt['startTime'])) : ''; ?></small>
+                            <small class="text-muted"><?php echo isset($appt['startTime']) ? formatDateVietnamese('day', strtotime($appt['startTime'])) : ''; ?></small>
                         </td>
                         <td class="align-middle">
                             <span class="badge bg-light text-dark"><?php echo $duration; ?></span>
@@ -449,6 +482,19 @@ ob_start();
                                               class="btn btn-outline-warning btn-sm" 
                                               title="<?php echo __('edit'); ?>">
                                     <i class="bi bi-pencil"></i>
+                                </a>
+                                <?php endif; ?>
+                                <?php 
+                                // Debug: Check prescribe button conditions
+                                $hasPrescriberRole = hasAnyRole(['ADMIN', 'DOCTOR']);
+                                $hasValidStatus = ($appt['status'] === 'CONFIRMED' || $appt['status'] === 'COMPLETED');
+                                error_log("DEBUG Prescribe Button - Appointment {$appt['id']}: Role=$hasPrescriberRole, Status={$appt['status']}, ValidStatus=$hasValidStatus");
+                                ?>
+                                <?php if ($hasPrescriberRole && $hasValidStatus): ?>
+                                <a href="prescriptions.php?action=add&appointment_id=<?php echo $appt['id']; ?>" 
+                                   class="btn btn-outline-success btn-sm" 
+                                   title="<?php echo __('create_prescription'); ?>">
+                                    <i class="bi bi-prescription2"></i>
                                 </a>
                                 <?php endif; ?>
                                 <?php if (hasRole('ADMIN')): ?>
@@ -519,17 +565,55 @@ ob_start();
                         
                         <div class="col-md-6 mb-3">
                             <label for="doctorId" class="form-label"><?php echo __('doctor'); ?> *</label>
-                            <select class="form-select" id="doctorId" name="doctorId" required>
+                            <?php 
+                            // Determine if doctor field should be disabled
+                            // Disable when:
+                            // 1. Doctor editing their own appointment
+                            // 2. Doctor creating new appointment (they should only create for themselves)
+                            $isDoctorFieldDisabled = ($user['role'] === 'DOCTOR' && 
+                                                    (($action === 'edit' && $appointment['doctorId'] === $user['id']) || 
+                                                     ($action === 'add')));
+                            ?>
+                            <select class="form-select" id="doctorId" name="doctorId" required 
+                                    <?php echo $isDoctorFieldDisabled ? 'disabled' : ''; ?>>
                                 <option value=""><?php echo __('select_doctor'); ?></option>
                                 <?php 
-                                $preselectDoctorId = $_GET['doctor_id'] ?? (($user['role'] === 'DOCTOR') ? $user['id'] : (($action === 'edit') ? $appointment['doctorId'] : ''));
+                                // Logic for preselecting doctor in form
+                                if ($action === 'edit') {
+                                    // For edit mode: 
+                                    // - If current user is DOCTOR and editing their own appointment, preselect themselves
+                                    // - Otherwise, preselect the current doctor of the appointment
+                                    if ($user['role'] === 'DOCTOR' && $appointment['doctorId'] === $user['id']) {
+                                        $preselectDoctorId = $user['id'];
+                                    } else {
+                                        $preselectDoctorId = $appointment['doctorId'];
+                                    }
+                                } else {
+                                    // For add mode:
+                                    // - If URL has doctor_id parameter, use it
+                                    // - If current user is DOCTOR, preselect themselves
+                                    // - Otherwise, no preselection
+                                    $preselectDoctorId = $_GET['doctor_id'] ?? (($user['role'] === 'DOCTOR') ? $user['id'] : '');
+                                }
+                                
                                 foreach ($users as $doctor): ?>
-                                        <option value="<?php echo $doctor['id']; ?>">
-                                            <?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? __('unknown'))); ?>
-                                        </option>
+                                <option value="<?php echo $doctor['id']; ?>" 
+                                        <?php echo ($doctor['id'] == $preselectDoctorId) ? 'selected' : ''; ?>>
+                                    <?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? __('unknown'))); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
+                            <?php if ($isDoctorFieldDisabled): ?>
+                                <!-- Hidden input to ensure doctorId is submitted when select is disabled -->
+                                <input type="hidden" name="doctorId" value="<?php echo htmlspecialchars($preselectDoctorId); ?>">
+                                <small class="text-muted">
+                                    <?php if ($action === 'edit'): ?>
+                                        <?php echo __('doctor_field_locked_edit_message'); ?>
+                                    <?php else: ?>
+                                        <?php echo __('doctor_field_locked_add_message'); ?>
+                                    <?php endif; ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                         
                         <div class="col-md-6 mb-3">
@@ -621,7 +705,7 @@ ob_start();
                     
                     <div class="col-md-6 mb-3">
                         <label class="form-label text-muted"><?php echo __("status"); ?></label>
-                        <p><span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($appointment['status'] ?? __('unknown'))); ?></span></p>
+                        <p><span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>"><?php echo getAppointmentStatusText($appointment['status'] ?? 'UNKNOWN'); ?></span></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
@@ -638,12 +722,12 @@ ob_start();
                     
                     <div class="col-md-6 mb-3">
                         <label class="form-label text-muted"><?php echo __('start_date_time'); ?></label>
-                        <p class="fw-bold"><?php echo isset($appointment['startTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['startTime'])) : __('not_provided'); ?></p>
+                        <p class="fw-bold"><?php echo isset($appointment['startTime']) ? formatDateVietnamese('full', strtotime($appointment['startTime'])) . ' lúc ' . date('H:i', strtotime($appointment['startTime'])) : __('not_provided'); ?></p>
                     </div>
                     
                     <div class="col-md-6 mb-3">
                         <label class="form-label text-muted"><?php echo __('end_date_time'); ?></label>
-                        <p class="fw-bold"><?php echo isset($appointment['endTime']) ? date('l, F j, Y \a\t H:i', strtotime($appointment['endTime'])) : __('not_provided'); ?></p>
+                        <p class="fw-bold"><?php echo isset($appointment['endTime']) ? formatDateVietnamese('full', strtotime($appointment['endTime'])) . ' lúc ' . date('H:i', strtotime($appointment['endTime'])) : __('not_provided'); ?></p>
                     </div>
                     
                     <div class="col-12 mb-3">
@@ -662,6 +746,17 @@ ob_start();
                 
                 <!-- Action Buttons -->
                 <div class="d-flex justify-content-end gap-2 mt-4">
+                    <?php 
+                    // Debug: Check prescribe button conditions for detail view
+                    $hasPrescriberRole = hasAnyRole(['ADMIN', 'DOCTOR']);
+                    $hasValidStatus = ($appointment['status'] === 'CONFIRMED' || $appointment['status'] === 'COMPLETED');
+                    error_log("DEBUG Prescribe Button Detail - Appointment {$appointment['id']}: Role=$hasPrescriberRole, Status={$appointment['status']}, ValidStatus=$hasValidStatus");
+                    ?>
+                    <?php if ($hasPrescriberRole && $hasValidStatus): ?>
+                        <a href="prescriptions.php?action=add&appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-success">
+                            <i class="bi bi-prescription2"></i> <?php echo __('create_prescription'); ?>
+                        </a>
+                    <?php endif; ?>
                     <?php if (hasAnyRole(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])): ?>
                         <a href="appointments.php?action=edit&id=<?php echo $appointment['id']; ?>" class="btn btn-primary">
                         <i class="bi bi-pencil"></i> <?php echo __('edit_appointment'); ?>
@@ -724,6 +819,61 @@ document.addEventListener('DOMContentLoaded', function() {
     const firstInput = document.querySelector('form input:not([type="hidden"]), form select');
     if (firstInput) {
         firstInput.focus();
+    }
+    
+    // Enhanced status transition logic for Admin rollback
+    const statusSelect = document.getElementById('status');
+    if (statusSelect) {
+        const currentStatus = statusSelect.value;
+        const userRole = '<?php echo $user['role'] ?? ''; ?>';
+        
+        // Define available transitions
+        const transitions = {
+            'SCHEDULED': ['CONFIRMED', 'CANCELED'],
+            'CONFIRMED': ['COMPLETED', 'CANCELED'],
+            'COMPLETED': [],
+            'CANCELED': []
+        };
+        
+        // Define admin rollback transitions
+        const adminRollback = {
+            'CONFIRMED': ['SCHEDULED'],
+            'COMPLETED': ['CONFIRMED']
+        };
+        
+        function updateStatusOptions() {
+            const current = statusSelect.value;
+            const allOptions = statusSelect.querySelectorAll('option');
+            
+            allOptions.forEach(option => {
+                const targetStatus = option.value;
+                let isAllowed = false;
+                
+                // Always allow current status
+                if (targetStatus === current) {
+                    isAllowed = true;
+                }
+                // Check standard transitions
+                else if (transitions[current] && transitions[current].includes(targetStatus)) {
+                    isAllowed = true;
+                }
+                // Check admin rollback
+                else if (userRole === 'ADMIN' && adminRollback[current] && adminRollback[current].includes(targetStatus)) {
+                    isAllowed = true;
+                    option.style.color = '#dc3545'; // Red color for rollback options
+                    option.title = 'Admin rollback - use with caution';
+                }
+                
+                option.disabled = !isAllowed;
+                option.style.display = isAllowed ? '' : 'none';
+            });
+        }
+        
+        // Initial setup
+        updateStatusOptions();
+        
+        // Update when status changes
+        statusSelect.addEventListener('change', updateStatusOptions);
     }
 });
 </script>

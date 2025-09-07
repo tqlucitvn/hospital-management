@@ -69,13 +69,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             } else {
-                $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'PUT', $patientData, $token);
-                if ($response['status_code'] === 200) {
-                    $_SESSION['flash_message'] = ['message' => __('patient_updated_success'), 'type' => 'success'];
-                    header('Location: patients.php');
-                    exit();
+                // Check edit permission
+                if (!hasAnyRole(['ADMIN', 'RECEPTIONIST'])) {
+                    $error = __('access_denied');
                 } else {
-                    $error = handleApiError($response) ?: __('failed_to_update_patient');
+                    $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'PUT', $patientData, $token);
+                    if ($response['status_code'] === 200) {
+                        $_SESSION['flash_message'] = ['message' => __('patient_updated_success'), 'type' => 'success'];
+                        header('Location: patients.php');
+                        exit();
+                    } else {
+                        $error = handleApiError($response) ?: __('failed_to_update_patient');
+                    }
                 }
             }
         }
@@ -152,11 +157,15 @@ try {
             $error = handleApiError($response) ?: __('failed_to_load');
         }
     } elseif ($action === 'edit' && $patientId) {
-        $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'GET', null, $token);
-        if ($response['status_code'] === 200) {
-            $patient = $response['data'];
+        if (!hasAnyRole(['ADMIN', 'RECEPTIONIST'])) {
+            $error = __('access_denied');
         } else {
-            $error = handleApiError($response) ?: __('patient_not_found');
+            $response = makeApiCall(PATIENT_SERVICE_URL . '/' . $patientId, 'GET', null, $token);
+            if ($response['status_code'] === 200) {
+                $patient = $response['data'];
+            } else {
+                $error = handleApiError($response) ?: __('patient_not_found');
+            }
         }
     } elseif ($action === 'view' && $patientId) {
         // Handle view patient details
@@ -191,7 +200,7 @@ ob_start();
         <p class="text-muted mb-0"><?php echo __('manage_patient_records'); ?></p>
     </div>
     
-    <?php if ($action === 'list' && hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
+    <?php if ($action === 'list' && hasAnyRole(['ADMIN', 'NURSE', 'RECEPTIONIST'])): ?>
     <div>
         <a href="patients.php?action=add" class="btn btn-primary">
             <i class="bi bi-person-plus"></i>
@@ -266,7 +275,7 @@ ob_start();
             <p class="text-muted">
                 <?php echo $search ? __('try_adjust_search') : __('start_by_adding_first_patient'); ?>
             </p>
-            <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST'])): ?>
+            <?php if (hasAnyRole(['ADMIN', 'NURSE', 'RECEPTIONIST'])): ?>
             <a href="patients.php?action=add" class="btn btn-primary">
                 <i class="bi bi-person-plus"></i>
                 <?php echo __('add_first_patient'); ?>

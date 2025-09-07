@@ -1,8 +1,14 @@
 <?php
 /**
  * Hospital Management System - Core Configuration
- * Cấu hình chính cho hệ thống quản lý bệnh viện
+ * Cấu hình chính cho hệ thống quản lý Bệnh viện Tâm An
  */
+
+// =============================================================================
+// LOCALE CONFIGURATION
+// =============================================================================
+// Thiết lập locale cho tiếng Việt
+setlocale(LC_TIME, 'vi_VN.UTF-8', 'vi_VN', 'vietnamese');
 
 // =============================================================================
 // API ENDPOINTS CONFIGURATION
@@ -90,6 +96,90 @@ function makeApiCallCurl($url, $method = 'GET', $data = null, $token = null) {
         'data' => json_decode($response, true),
         'error' => $error
     ];
+}
+
+// =============================================================================
+// DATE/TIME HELPER FUNCTIONS
+// =============================================================================
+
+// Mapping tiếng Việt cho ngày tháng
+$vietnameseDays = [
+    'Sunday' => 'Chủ Nhật',
+    'Monday' => 'Thứ Hai', 
+    'Tuesday' => 'Thứ Ba',
+    'Wednesday' => 'Thứ Tư',
+    'Thursday' => 'Thứ Năm',
+    'Friday' => 'Thứ Sáu',
+    'Saturday' => 'Thứ Bảy'
+];
+
+$vietnameseMonths = [
+    1 => 'tháng 1', 2 => 'tháng 2', 3 => 'tháng 3', 4 => 'tháng 4', 5 => 'tháng 5', 6 => 'tháng 6',
+    7 => 'tháng 7', 8 => 'tháng 8', 9 => 'tháng 9', 10 => 'tháng 10', 11 => 'tháng 11', 12 => 'tháng 12'
+];
+
+/**
+ * Hiển thị ngày tháng theo định dạng tiếng Việt (không dùng strftime deprecated)
+ * @param string $format - Format mong muốn ('full', 'datetime', 'date', 'day', 'time')
+ * @param int|null $timestamp - Timestamp, nếu null thì dùng thời gian hiện tại
+ * @return string - Chuỗi ngày tháng đã được format
+ */
+function formatDateVietnamese($format = 'full', $timestamp = null) {
+    global $vietnameseDays, $vietnameseMonths;
+    
+    if ($timestamp === null) {
+        $timestamp = time();
+    }
+    
+    $dayOfWeek = date('l', $timestamp); // English day name
+    $day = date('j', $timestamp); // Day of month
+    $month = (int)date('n', $timestamp); // Month number
+    $year = date('Y', $timestamp); // Year
+    $hour = date('H', $timestamp); // Hour
+    $minute = date('i', $timestamp); // Minute
+    
+    switch ($format) {
+        case 'full':
+            // "Chủ Nhật, 7 tháng 9, 2025"
+            return $vietnameseDays[$dayOfWeek] . ', ' . $day . ' ' . $vietnameseMonths[$month] . ', ' . $year;
+            
+        case 'datetime':
+            // "7 tháng 9, 2025 14:30"
+            return $day . ' ' . $vietnameseMonths[$month] . ', ' . $year . ' ' . $hour . ':' . $minute;
+            
+        case 'date':
+            // "7 tháng 9, 2025"
+            return $day . ' ' . $vietnameseMonths[$month] . ', ' . $year;
+            
+        case 'day':
+            // "Chủ Nhật"
+            return $vietnameseDays[$dayOfWeek];
+            
+        case 'time':
+            // "14:30"
+            return $hour . ':' . $minute;
+            
+        default:
+            return $day . '/' . $month . '/' . $year;
+    }
+}
+
+/**
+ * Hiển thị ngày đầy đủ theo định dạng tiếng Việt
+ * @param int|null $timestamp - Timestamp, nếu null thì dùng thời gian hiện tại
+ * @return string - Chuỗi ngày tháng dạng "Chủ Nhật, 7 tháng 9, 2025"
+ */
+function formatFullDateVietnamese($timestamp = null) {
+    return formatDateVietnamese('full', $timestamp);
+}
+
+/**
+ * Hiển thị ngày giờ theo định dạng tiếng Việt
+ * @param int|null $timestamp - Timestamp, nếu null thì dùng thời gian hiện tại
+ * @return string - Chuỗi ngày tháng dạng "7 tháng 9, 2025 14:30"
+ */
+function formatDateTimeVietnamese($timestamp = null) {
+    return formatDateVietnamese('datetime', $timestamp);
 }
 
 /**
@@ -357,10 +447,25 @@ function getAppointmentStatusClass($status) {
     $classes = [
         'SCHEDULED' => 'badge bg-primary',
         'CONFIRMED' => 'badge bg-success',
-        'CANCELLED' => 'badge bg-danger',
+        'CANCELED' => 'badge bg-danger',
         'COMPLETED' => 'badge bg-info'
     ];
     return $classes[$status] ?? 'badge bg-secondary';
+}
+
+/**
+ * Lấy tên hiển thị cho appointment status (đã dịch)
+ * @param string $status - Status code
+ */
+function getAppointmentStatusText($status) {
+    $texts = [
+        'SCHEDULED' => 'Đã lên lịch',
+        'CONFIRMED' => 'Đã xác nhận',
+        'CANCELED' => 'Đã hủy',
+        'COMPLETED' => 'Hoàn thành',
+        'UNKNOWN' => 'Không xác định'
+    ];
+    return $texts[$status] ?? 'Không xác định';
 }
 
 /**
@@ -375,6 +480,21 @@ function getPrescriptionStatusClass($status) {
         case 'CANCELLED': return 'badge bg-danger';
         case 'COMPLETED': return 'badge bg-primary';
         default: return 'badge bg-secondary';
+    }
+}
+
+/**
+ * Lấy tên hiển thị cho prescription status (đã dịch)
+ * @param string $status - Status code
+ */
+function getPrescriptionStatusText($status) {
+    switch(strtoupper($status ?? '')) {
+        case 'ISSUED': return __('issued');
+        case 'PENDING': return __('pending');
+        case 'DISPENSED': return __('dispensed');
+        case 'CANCELLED': return __('cancelled');
+        case 'COMPLETED': return __('completed');
+        default: return __('unknown') ?? 'Unknown';
     }
 }
 // =============================================================================

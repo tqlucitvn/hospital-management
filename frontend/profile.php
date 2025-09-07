@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Mock user data (in real system, fetch from API)
+// Fetch real user data from API
 $profileData = [
     'id' => $user['id'] ?? 'user123',
     'fullName' => $user['fullName'] ?? 'John Doe',
@@ -65,6 +65,24 @@ $profileData = [
     'lastLogin' => '2024-08-24 10:30:00',
     'avatar' => null
 ];
+
+// Try to get real data from API
+$token = $_SESSION['token'] ?? '';
+if (!empty($token)) {
+    $userResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+    if ($userResponse['status_code'] === 200 && isset($userResponse['data'])) {
+        $apiData = $userResponse['data'];
+        $profileData = array_merge($profileData, [
+            'id' => $apiData['id'] ?? $profileData['id'],
+            'fullName' => $apiData['fullName'] ?? $profileData['fullName'],
+            'email' => $apiData['email'] ?? $profileData['email'],
+            'role' => $apiData['role'] ?? $profileData['role'],
+            'phone' => $apiData['phoneNumber'] ?? $profileData['phone'],
+            'joinDate' => isset($apiData['createdAt']) ? date('Y-m-d', strtotime($apiData['createdAt'])) : $profileData['joinDate'],
+            'lastLogin' => isset($apiData['updatedAt']) ? $apiData['updatedAt'] : $profileData['lastLogin']
+        ]);
+    }
+}
 
 // Start output buffering for page content
 ob_start();

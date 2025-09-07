@@ -130,7 +130,7 @@ Về mặt kỹ thuật, hệ thống được triển khai với 5 microservice
 
 Kết quả đạt được bao gồm một hệ thống hoàn chỉnh với các chức năng cốt lõi đầy đủ, hiệu suất tốt (thời gian phản hồi < 500ms), khả năng mở rộng cao, và giao diện người dùng thân thiện. Hệ thống đã được kiểm thử toàn diện với kiểm thử đơn vị (unit tests), kiểm thử tích hợp (integration tests) và kiểm thử đầu cuối (end-to-end tests), đạt độ bao phủ mã nguồn > 80\%.
 
-\textbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Healthcare Management, Docker, RabbitMQ, JWT Authentication, Role-based Access Control
+	extbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Healthcare Management, Docker, RabbitMQ, JWT Authentication, Role-based Access Control
 \end{abstract}
 
 \tableofcontents
@@ -1341,7 +1341,7 @@ Xem tất cả bệnh nhân & x & - & x & x \\
 \hline
 Xem bệnh nhân liên quan & x & x & x & x \\
 \hline
-Tạo bệnh nhân & x & - & - & x \\
+Tạo bệnh nhân & x & - & x & x \\
 \hline
 Sửa bệnh nhân & x & - & - & x \\
 \hline
@@ -1353,7 +1353,7 @@ Xem tất cả lịch hẹn & x & - & x & x \\
 \hline
 Xem lịch hẹn của mình & x & x & x & x \\
 \hline
-Tạo lịch hẹn & x & - & - & x \\
+Tạo lịch hẹn & x & x & - & x \\
 \hline
 Sửa lịch hẹn & x & x & - & x \\
 \hline
@@ -1371,7 +1371,7 @@ Phát thuốc & x & - & x & - \\
 \hline
 \multicolumn{5}{|c|}{\textbf{Hệ thống thông báo}} \\
 \hline
-Gửi thông báo & x & - & x & - \\
+Xem thông báo & x & x & x & x \\
 \hline
 Xem lịch sử thông báo & x & - & - & - \\
 \hline
@@ -1394,9 +1394,11 @@ Người quản trị có toàn quyền trong hệ thống:
 Bác sĩ tập trung vào hoạt động khám chữa bệnh:
 \begin{itemize}
     \item Xem lịch hẹn của bản thân
+    \item Tạo lịch hẹn cho bệnh nhân
     \item Xem thông tin bệnh nhân có lịch hẹn
     \item Tạo và quản lý đơn thuốc
     \item Cập nhật trạng thái cuộc hẹn
+    \item Xem thông báo hệ thống
     \item Ghi chú khám bệnh
 \end{itemize}
 
@@ -1404,9 +1406,10 @@ Bác sĩ tập trung vào hoạt động khám chữa bệnh:
 Y tá hỗ trợ quy trình điều trị:
 \begin{itemize}
     \item Xem danh sách bệnh nhân và lịch hẹn
+    \item Đăng ký bệnh nhân mới (hỗ trợ tiếp đón)
     \item Xem và xác nhận đơn thuốc
     \item Phát thuốc cho bệnh nhân
-    \item Gửi thông báo nhắc nhở
+    \item Xem thông báo hệ thống
     \item Hỗ trợ bác sĩ trong khám bệnh
 \end{itemize}
 
@@ -1417,6 +1420,7 @@ Lễ tân quản lý tiếp đón bệnh nhân:
     \item Tạo và quản lý lịch hẹn
     \item Check-in bệnh nhân
     \item Cập nhật thông tin liên hệ
+    \item Xem thông báo hệ thống
     \item Hỗ trợ bệnh nhân và gia đình
 \end{itemize}
 

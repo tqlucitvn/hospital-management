@@ -334,7 +334,9 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="profile.php"><i class="bi bi-person"></i> <?php echo __('profile'); ?></a></li>
+                        <?php if (hasRole('ADMIN')): ?>
                         <li><a class="dropdown-item" href="settings.php"><i class="bi bi-gear"></i> <?php echo __('settings'); ?></a></li>
+                        <?php endif; ?>
                         <li>
                             <hr class="dropdown-divider">
                         </li>

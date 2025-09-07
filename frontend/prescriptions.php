@@ -7,6 +7,10 @@ $pageTitle = __('prescription_management');
 $user = getCurrentUser();
 $action = $_GET['action'] ?? 'list';
 
+// Get preselected appointment ID from URL (when coming from appointments page)
+$preselectedAppointmentId = $_GET['appointment_id'] ?? '';
+$preselectedAppointment = null;
+
 $prescriptions = [];
 $patients = [];
 $users = [];
@@ -40,11 +44,69 @@ function getPatientName($patientId, $patients)
     return __('unknown_patient');
 }
 
+function formatLocalizedDate($dateString) {
+    if (!$dateString) return __('not_provided');
+    
+    $timestamp = strtotime($dateString);
+    if (!$timestamp) return __('not_provided');
+    
+    // Get current language
+    $lang = $_SESSION['language'] ?? 'vi';
+    
+    if ($lang === 'vi') {
+        // Vietnamese format: DD/MM/YYYY HH:MM
+        return date('d/m/Y H:i', $timestamp);
+    } else {
+        // English format: Mon DD, YYYY HH:MM
+        return date('M j, Y H:i', $timestamp);
+    }
+}
+
+function formatLocalizedDayName($dateString) {
+    if (!$dateString) return '';
+    
+    $timestamp = strtotime($dateString);
+    if (!$timestamp) return '';
+    
+    // Get current language
+    $lang = $_SESSION['language'] ?? 'vi';
+    
+    if ($lang === 'vi') {
+        $days = [
+            'Sunday' => 'Chủ nhật',
+            'Monday' => 'Thứ hai', 
+            'Tuesday' => 'Thứ ba',
+            'Wednesday' => 'Thứ tư',
+            'Thursday' => 'Thứ năm',
+            'Friday' => 'Thứ sáu',
+            'Saturday' => 'Thứ bảy'
+        ];
+        $englishDay = date('l', $timestamp);
+        return $days[$englishDay] ?? $englishDay;
+    } else {
+        return date('l', $timestamp);
+    }
+}
+
 function getDoctorName($doctorId, $users)
 {
+    if (!is_array($users)) {
+        error_log("DEBUG getDoctorName - Users is not an array: " . gettype($users));
+        return __('unknown_doctor');
+    }
+    
+    // Quick optimization: if there's only one user (current user), check if it matches
+    if (count($users) === 1 && isset($users[0]['id']) && $users[0]['id'] === $doctorId) {
+        $user = $users[0];
+        if (!empty($user['fullName'])) {
+            return $user['fullName'];
+        }
+    }
+    
+    // Fallback to original logic for multiple users or no match
     foreach ($users as $user) {
         if (is_array($user) && isset($user['id']) && $user['id'] == $doctorId) {
-            // Check multiple possible field names for doctor name
+            // Check fullName first (this is the correct field from user service)
             if (!empty($user['fullName'])) {
                 return $user['fullName'];
             } elseif (!empty($user['name'])) {
@@ -60,10 +122,21 @@ function getDoctorName($doctorId, $users)
                 return explode('@', $user['email'])[0];
             }
             // Fallback to Doctor ID if no name found
-        return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
+            return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
         }
     }
+    
+    error_log("DEBUG getDoctorName - User not found for doctorId: " . $doctorId . ", available user IDs: " . json_encode(array_map(function($u) { return $u['id'] ?? 'no-id'; }, $users)));
     return __('unknown_doctor');
+}
+
+function formatDoctorTitle($doctorName) {
+    // If name already contains "Bác sĩ" or "Dr.", don't add prefix
+    if (strpos($doctorName, 'Bác sĩ') !== false || strpos($doctorName, 'Dr.') !== false) {
+        return $doctorName;
+    }
+    // Otherwise, use the translation template
+    return sprintf(__('doctor_title_name'), $doctorName);
 }
 
 
@@ -115,7 +188,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = handleApiError($response) ?: __('failed_to_create_prescription');
                 }
             } else {
-                    $error = __('patient_doctor_medication_required');
+                $error = __('patient_doctor_medication_required');
+            }
+        } elseif ($action === 'edit') {
+            // Parse medication items from form - same logic as add
+            $items = [];
+            if (isset($_POST['drugName']) && is_array($_POST['drugName'])) {
+                for ($i = 0; $i < count($_POST['drugName']); $i++) {
+                    if (!empty($_POST['drugName'][$i])) {
+                        $items[] = [
+                            'drugName' => sanitize($_POST['drugName'][$i]),
+                            'dosage' => sanitize($_POST['dosage'][$i]),
+                            'frequency' => sanitize($_POST['frequency'][$i]),
+                            'durationDays' => (int) $_POST['durationDays'][$i],
+                            'instruction' => sanitize($_POST['instruction'][$i] ?? '')
+                        ];
+                    }
+                }
+            }
+
+            $prescriptionData = [
+                'patientId' => sanitize($_POST['patientId']),
+                'doctorId' => sanitize($_POST['doctorId']),
+                'appointmentId' => !empty($_POST['appointmentId']) ? sanitize($_POST['appointmentId']) : null,
+                'note' => sanitize($_POST['note'] ?? ''),
+                'items' => $items
+            ];
+
+            $prescriptionId = $_GET['id'] ?? '';
+
+            if (!empty($prescriptionData['patientId']) && !empty($prescriptionData['doctorId']) && !empty($items) && !empty($prescriptionId)) {
+                $response = makeApiCall(PRESCRIPTION_SERVICE_URL . '/' . $prescriptionId, 'PUT', $prescriptionData, $token);
+
+                if ($response['status_code'] === 200) {
+                    $success = __('prescription_updated_success');
+                    $action = 'view';
+                } else {
+                    $error = handleApiError($response) ?: __('failed_to_update_prescription');
+                }
+            } else {
+                $error = __('patient_doctor_medication_required');
             }
         } elseif ($action === 'update_status' && isset($_POST['prescriptionId'])) {
             // Update prescription status
@@ -204,6 +316,24 @@ try {
                     $baseUrl .= 'search=' . urlencode($search) . '&';
                 $pagination = paginate($page, $totalPages, $baseUrl);
             }
+            
+            // Load current user info for doctor name (more efficient than loading all doctors)
+            $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+            if ($currentUserResponse['status_code'] === 200) {
+                $currentUser = $currentUserResponse['data'];
+                // For list view, we only need current user since doctors only see their own prescriptions
+                $users = [$currentUser]; // Create array with single user for consistency
+            } else {
+                $users = [];
+            }
+            
+            // Load patients for patient names in list view
+            $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+            if ($patientsResponse['status_code'] === 200) {
+                $patients = isset($patientsResponse['data']['patients']) ?
+                    $patientsResponse['data']['patients'] :
+                    (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+            }
         } else {
             $error = handleApiError($response) ?: __('failed_to_load');
             // Debug: Add more error details
@@ -216,27 +346,58 @@ try {
         $response = makeApiCall(PRESCRIPTION_SERVICE_URL . '/' . $prescriptionId, 'GET', null, $token);
         if ($response['status_code'] === 200) {
             $prescription = $response['data'];
+            
+            // Load users and patients for view/edit mode
+            $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+            if ($patientsResponse['status_code'] === 200) {
+                $patients = isset($patientsResponse['data']['patients']) ?
+                    $patientsResponse['data']['patients'] :
+                    (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+            }
+
+            // Load current user info for view/edit mode
+            $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+            if ($currentUserResponse['status_code'] === 200) {
+                $currentUser = $currentUserResponse['data'];
+                $users = [$currentUser]; // Create array with single user for consistency
+            } else {
+                $users = [];
+            }
         } else {
             $error = handleApiError($response) ?: __('prescription_not_found');
         }
     }
 
-    // Get patients, users, and appointments for dropdowns
+    // Get patients, users, and appointments for dropdowns (additional data for add/edit)
     if ($action === 'add' || $action === 'edit') {
-        $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
-        if ($patientsResponse['status_code'] === 200) {
-            $patients = isset($patientsResponse['data']['patients']) ?
-                $patientsResponse['data']['patients'] :
-                (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+        // Patients and users might already be loaded in view/edit mode above
+        if (!isset($patients)) {
+            $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
+            if ($patientsResponse['status_code'] === 200) {
+                $patients = isset($patientsResponse['data']['patients']) ?
+                    $patientsResponse['data']['patients'] :
+                    (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
+            }
         }
 
-        $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
-        if ($usersResponse['status_code'] === 200) {
-            $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
-            // Filter doctors
-            $users = array_filter($users, function ($user) {
-                return isset($user['role']) && $user['role'] === 'DOCTOR';
-            });
+        if (!isset($users)) {
+            // For add/edit mode, load users based on role
+            if (hasRole('ADMIN')) {
+                // Admin can see all doctors
+                $usersResponse = makeApiCall(USER_SERVICE_URL . '/doctors', 'GET', null, $token);
+                if ($usersResponse['status_code'] === 200) {
+                    $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
+                }
+            } else {
+                // Non-admin users (doctors) only see themselves
+                $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+                if ($currentUserResponse['status_code'] === 200) {
+                    $currentUser = $currentUserResponse['data'];
+                    $users = [$currentUser];
+                } else {
+                    $users = [];
+                }
+            }
         }
 
         $appointmentsResponse = makeApiCall(APPOINTMENT_SERVICE_URL, 'GET', null, $token);
@@ -244,6 +405,16 @@ try {
             $appointments = isset($appointmentsResponse['data']['appointments']) ?
                 $appointmentsResponse['data']['appointments'] :
                 (is_array($appointmentsResponse['data']) ? $appointmentsResponse['data'] : []);
+        }
+        
+        // If we have a preselected appointment ID, fetch its details
+        if (!empty($preselectedAppointmentId)) {
+            foreach ($appointments as $appointment) {
+                if ($appointment['id'] === $preselectedAppointmentId) {
+                    $preselectedAppointment = $appointment;
+                    break;
+                }
+            }
         }
     }
 
@@ -383,11 +554,12 @@ ob_start();
                                 $doctorName = getDoctorName($pres['doctorId'], $users);
 
                                 // Format date
-                                $createdDate = isset($pres['createdAt']) ? date('M j, Y H:i', strtotime($pres['createdAt'])) : __('not_provided');
+                                $createdDate = formatLocalizedDate($pres['createdAt']);
+                                $dayName = formatLocalizedDayName($pres['createdAt']);
 
                                 // Status styling
                                 $statusClass = getPrescriptionStatusClass($pres['status'] ?? 'UNKNOWN');
-                                $statusText = ucfirst(strtolower($pres['status'] ?? __('unknown')));
+                                $statusText = getPrescriptionStatusText($pres['status'] ?? 'UNKNOWN');
 
                                 // Count medications
                                 $medicationCount = isset($pres['itemsCount']) ? (int)$pres['itemsCount'] : 0;
@@ -415,7 +587,7 @@ ob_start();
                                                 <?php echo strtoupper(substr($doctorName, 0, 1)); ?>
                                             </div>
                                             <div>
-                                                <div class="fw-bold text-dark"><?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctorName)); ?>
+                                                <div class="fw-bold text-dark"><?php echo htmlspecialchars(formatDoctorTitle($doctorName)); ?>
                                                 </div>
                                                 <small class="text-muted"><?php echo __('doctor_id_label'); ?>: <?php echo htmlspecialchars(substr($pres['doctorId'] ?? __('not_provided'), 0, 8)); ?>...</small>
                                             </div>
@@ -426,8 +598,7 @@ ob_start();
                                     </td>
                                     <td class="align-middle">
                                         <div class="fw-bold text-dark"><?php echo $createdDate; ?></div>
-                                        <small
-                                            class="text-muted"><?php echo isset($pres['createdAt']) ? date('l', strtotime($pres['createdAt'])) : ''; ?></small>
+                                        <small class="text-muted"><?php echo $dayName; ?></small>
                                     </td>
                                     <td class="align-middle">
                                             <span class="badge bg-light text-dark">
@@ -441,8 +612,14 @@ ob_start();
                                                 class="btn btn-outline-primary btn-sm" title="<?php echo __('view_details'); ?>">
                                                 <i class="bi bi-eye"></i>
                                             </a>
+                                            <?php if (hasAnyRole(['ADMIN', 'DOCTOR']) && ($pres['status'] ?? '') !== 'DISPENSED' && ($pres['status'] ?? '') !== 'COMPLETED'): ?>
+                                                <a href="prescriptions.php?action=edit&id=<?php echo $pres['id']; ?>"
+                                                    class="btn btn-outline-warning btn-sm" title="<?php echo __('edit_prescription'); ?>">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            <?php endif; ?>
                                             <?php if (hasAnyRole(['ADMIN', 'DOCTOR']) && ($pres['status'] ?? '') !== 'DISPENSED'): ?>
-                                                <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal"
+                                                <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal"
                                                     data-bs-target="#statusModal" data-prescription-id="<?php echo $pres['id']; ?>"
                                                     data-current-status="<?php echo $pres['status'] ?? ''; ?>" title="<?php echo __('update_status'); ?>">
                                                     <i class="bi bi-arrow-repeat"></i>
@@ -490,6 +667,22 @@ ob_start();
                     </h5>
                 </div>
 
+<?php elseif ($action === 'edit' && $prescription): ?>
+    <!-- Edit Prescription Form -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-pencil"></i>
+                        <?php echo __('edit_prescription'); ?>
+                    </h5>
+                </div>
+
+<?php endif; ?>
+
+<!-- Shared Form for Add/Edit Prescription -->
+<?php if ($action === 'add' || ($action === 'edit' && $prescription)): ?>
                 <div class="card-body">
                     <form method="POST" id="prescriptionForm">
                         <input type="hidden" name="csrf_token" value="<?php echo getCsrfToken(); ?>">
@@ -497,36 +690,59 @@ ob_start();
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="patientId" class="form-label"><?php echo __('patient'); ?> *</label>
-                                <select class="form-select" id="patientId" name="patientId" required>
+                                <select class="form-select" id="patientId" name="patientId" required <?php echo ($preselectedAppointment || $action === 'edit') ? 'disabled' : ''; ?>>
                                     <option value=""><?php echo __('select_patient'); ?></option>
                                     <?php 
-                                    $preselectPatientId = $_GET['patient_id'] ?? '';
+                                    $selectedPatientId = $preselectedAppointment ? $preselectedAppointment['patientId'] : 
+                                                       ($action === 'edit' && $prescription ? $prescription['patientId'] : 
+                                                       ($_GET['patient_id'] ?? ''));
                                     foreach ($patients as $patient): ?>
-                                        <option value="<?php echo $patient['id']; ?>" <?php echo ($patient['id'] == $preselectPatientId) ? 'selected' : ''; ?>>
+                                        <option value="<?php echo $patient['id']; ?>" <?php echo ($patient['id'] == $selectedPatientId) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($patient['fullName'] ?? __('unknown')); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <?php if ($preselectedAppointment || $action === 'edit'): ?>
+                                    <input type="hidden" name="patientId" value="<?php echo htmlspecialchars($selectedPatientId); ?>">
+                                    <small class="text-muted"><?php echo $action === 'edit' ? __('patient_cannot_be_changed') : __('patient_selected_from_appointment'); ?></small>
+                                <?php endif; ?>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label for="doctorId" class="form-label"><?php echo __('doctor'); ?> *</label>
-                                <select class="form-select" id="doctorId" name="doctorId" required>
+                                <select class="form-select" id="doctorId" name="doctorId" required <?php echo ($preselectedAppointment && $user['role'] === 'DOCTOR') || $action === 'edit' ? 'disabled' : ''; ?>>
                                     <option value=""><?php echo __('select_doctor'); ?></option>
-                                    <?php foreach ($users as $doctor): ?>
-                                            <option value="<?php echo $doctor['id']; ?>">
-                                            <?php echo sprintf(__('doctor_title_name'), htmlspecialchars($doctor['fullName'] ?? $doctor['email'] ?? __('unknown'))); ?>
+                                    <?php 
+                                    $selectedDoctorId = '';
+                                    if ($action === 'edit' && $prescription) {
+                                        $selectedDoctorId = $prescription['doctorId'];
+                                    } elseif ($preselectedAppointment) {
+                                        $selectedDoctorId = $preselectedAppointment['doctorId'];
+                                    } elseif ($user['role'] === 'DOCTOR') {
+                                        $selectedDoctorId = $user['id'];
+                                    }
+                                    
+                                    foreach ($users as $doctor): ?>
+                                            <option value="<?php echo $doctor['id']; ?>" <?php echo ($doctor['id'] == $selectedDoctorId) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars(formatDoctorTitle($doctor['fullName'] ?? $doctor['email'] ?? __('unknown'))); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <?php if (($preselectedAppointment && $user['role'] === 'DOCTOR') || $action === 'edit'): ?>
+                                    <input type="hidden" name="doctorId" value="<?php echo htmlspecialchars($selectedDoctorId); ?>">
+                                    <small class="text-muted"><?php echo $action === 'edit' ? __('doctor_cannot_be_changed') : __('doctor_selected_from_appointment'); ?></small>
+                                <?php endif; ?>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label for="appointmentId" class="form-label"><?php echo __('related_appointment'); ?></label>
-                                <select class="form-select" id="appointmentId" name="appointmentId">
+                                <select class="form-select" id="appointmentId" name="appointmentId" <?php echo ($preselectedAppointment || $action === 'edit') ? 'disabled' : ''; ?>>
                                     <option value=""><?php echo __('select_appointment_optional'); ?></option>
-                                    <?php foreach ($appointments as $appointment): ?>
-                                        <option value="<?php echo $appointment['id']; ?>">
+                                    <?php 
+                                    $selectedAppointmentId = $preselectedAppointment ? $preselectedAppointment['id'] : 
+                                                           ($action === 'edit' && $prescription ? $prescription['appointmentId'] : '');
+                                    foreach ($appointments as $appointment): ?>
+                                        <option value="<?php echo $appointment['id']; ?>" <?php echo ($appointment['id'] === $selectedAppointmentId) ? 'selected' : ''; ?>>
                                             <?php
                                             $aptPatientName = getPatientName($appointment['patientId'], $patients);
                                             $aptDate = isset($appointment['startTime']) ? date('M j, Y H:i', strtotime($appointment['startTime'])) : __('not_provided');
@@ -535,47 +751,92 @@ ob_start();
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <?php if ($preselectedAppointment || $action === 'edit'): ?>
+                                    <input type="hidden" name="appointmentId" value="<?php echo htmlspecialchars($selectedAppointmentId); ?>">
+                                    <small class="text-muted"><?php echo $action === 'edit' ? __('appointment_cannot_be_changed') : __('appointment_selected_automatically'); ?></small>
+                                <?php endif; ?>
                             </div>
 
                             <div class="col-12 mb-4">
                                 <label class="form-label"><?php echo __('medications'); ?> *</label>
                                 <div id="medicationsContainer">
-                                    <div class="medication-item border rounded p-3 mb-3">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="mb-0"><?php echo sprintf(__('medication_item_title'), 1); ?></h6>
-                                            <button type="button" class="btn btn-outline-danger btn-sm remove-medication"
-                                                style="display: none;">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                    <?php if ($action === 'edit' && $prescription && isset($prescription['items'])): ?>
+                                        <?php foreach ($prescription['items'] as $index => $item): ?>
+                                            <div class="medication-item border rounded p-3 mb-3">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <h6 class="mb-0"><?php echo sprintf(__('medication_item_title'), $index + 1); ?></h6>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm remove-medication"
+                                                        style="<?php echo $index === 0 ? 'display: none;' : ''; ?>">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-3 mb-2">
+                                                        <label class="form-label"><?php echo __('medication_name'); ?></label>
+                                                        <input type="text" class="form-control" name="drugName[]"
+                                                            placeholder="<?php echo __('medication_name'); ?>" value="<?php echo htmlspecialchars($item['drugName'] ?? ''); ?>" required>
+                                                    </div>
+                                                    <div class="col-md-2 mb-2">
+                                                        <label class="form-label"><?php echo __('dosage'); ?></label>
+                                                        <input type="text" class="form-control" name="dosage[]"
+                                                            placeholder="<?php echo __('dosage_example'); ?>" value="<?php echo htmlspecialchars($item['dosage'] ?? ''); ?>" required>
+                                                    </div>
+                                                    <div class="col-md-2 mb-2">
+                                                        <label class="form-label"><?php echo __('frequency'); ?></label>
+                                                        <input type="text" class="form-control" name="frequency[]"
+                                                            placeholder="<?php echo __('frequency_example'); ?>" value="<?php echo htmlspecialchars($item['frequency'] ?? ''); ?>" required>
+                                                    </div>
+                                                    <div class="col-md-2 mb-2">
+                                                        <label class="form-label"><?php echo __('duration'); ?> (<?php echo __('days'); ?>)</label>
+                                                        <input type="number" class="form-control" name="durationDays[]" min="1"
+                                                            value="<?php echo htmlspecialchars($item['durationDays'] ?? ''); ?>" required>
+                                                    </div>
+                                                    <div class="col-md-3 mb-2">
+                                                        <label class="form-label"><?php echo __('instructions'); ?></label>
+                                                        <input type="text" class="form-control" name="instruction[]"
+                                                            placeholder="<?php echo __('instruction_example'); ?>" value="<?php echo htmlspecialchars($item['instruction'] ?? ''); ?>">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="medication-item border rounded p-3 mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h6 class="mb-0"><?php echo sprintf(__('medication_item_title'), 1); ?></h6>
+                                                <button type="button" class="btn btn-outline-danger btn-sm remove-medication"
+                                                    style="display: none;">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-3 mb-2">
+                                                    <label class="form-label"><?php echo __('medication_name'); ?></label>
+                                                    <input type="text" class="form-control" name="drugName[]"
+                                                        placeholder="<?php echo __('medication_name'); ?>" required>
+                                                </div>
+                                                <div class="col-md-2 mb-2">
+                                                    <label class="form-label"><?php echo __('dosage'); ?></label>
+                                                    <input type="text" class="form-control" name="dosage[]"
+                                                        placeholder="<?php echo __('dosage_example'); ?>" required>
+                                                </div>
+                                                <div class="col-md-2 mb-2">
+                                                    <label class="form-label"><?php echo __('frequency'); ?></label>
+                                                    <input type="text" class="form-control" name="frequency[]"
+                                                        placeholder="<?php echo __('frequency_example'); ?>" required>
+                                                </div>
+                                                <div class="col-md-2 mb-2">
+                                                    <label class="form-label"><?php echo __('duration'); ?> (<?php echo __('days'); ?>)</label>
+                                                    <input type="number" class="form-control" name="durationDays[]" min="1"
+                                                        required>
+                                                </div>
+                                                <div class="col-md-3 mb-2">
+                                                    <label class="form-label"><?php echo __('instructions'); ?></label>
+                                                    <input type="text" class="form-control" name="instruction[]"
+                                                        placeholder="<?php echo __('instruction_example'); ?>">
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="row">
-                                            <div class="col-md-3 mb-2">
-                                                <label class="form-label"><?php echo __('medication_name'); ?></label>
-                                                <input type="text" class="form-control" name="drugName[]"
-                                                    placeholder="<?php echo __('medication_name'); ?>" required>
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label class="form-label"><?php echo __('dosage'); ?></label>
-                                                <input type="text" class="form-control" name="dosage[]"
-                                                    placeholder="<?php echo __('dosage_example'); ?>" required>
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label class="form-label"><?php echo __('frequency'); ?></label>
-                                                <input type="text" class="form-control" name="frequency[]"
-                                                    placeholder="<?php echo __('frequency_example'); ?>" required>
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label class="form-label"><?php echo __('duration'); ?> (<?php echo __('days'); ?>)</label>
-                                                <input type="number" class="form-control" name="durationDays[]" min="1"
-                                                    required>
-                                            </div>
-                                            <div class="col-md-3 mb-2">
-                                                <label class="form-label"><?php echo __('instructions'); ?></label>
-                                                <input type="text" class="form-control" name="instruction[]"
-                                                    placeholder="<?php echo __('instruction_example'); ?>">
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <button type="button" class="btn btn-outline-primary" id="addMedication">
@@ -586,7 +847,7 @@ ob_start();
                             <div class="col-12 mb-3">
                                 <label for="note" class="form-label"><?php echo __('prescription_notes'); ?></label>
                                 <textarea class="form-control" id="note" name="note" rows="3"
-                                    placeholder="<?php echo __('prescription_notes_placeholder'); ?>"></textarea>
+                                    placeholder="<?php echo __('prescription_notes_placeholder'); ?>"><?php echo ($action === 'edit' && $prescription) ? htmlspecialchars($prescription['note'] ?? '') : ''; ?></textarea>
                             </div>
                         </div>
 
@@ -595,7 +856,7 @@ ob_start();
                                 <i class="bi bi-x"></i> <?php echo __('cancel'); ?>
                             </a>
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check"></i> <?php echo __('create_prescription'); ?>
+                                <i class="bi bi-check"></i> <?php echo $action === 'add' ? __('create_prescription') : __('update_prescription'); ?>
                             </button>
                         </div>
                     </form>
@@ -616,6 +877,11 @@ ob_start();
                             <?php echo __('prescription_details'); ?>
                         </h5>
                         <div>
+                            <?php if (hasAnyRole(['ADMIN', 'DOCTOR']) && ($prescription['status'] ?? '') !== 'DISPENSED' && ($prescription['status'] ?? '') !== 'COMPLETED'): ?>
+                                <a href="prescriptions.php?action=edit&id=<?php echo $prescription['id']; ?>" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-pencil"></i> <?php echo __('edit_prescription'); ?>
+                                </a>
+                            <?php endif; ?>
                             <a href="prescriptions.php" class="btn btn-outline-secondary btn-sm">
                                 <i class="bi bi-arrow-left"></i> <?php echo __('back_to_list'); ?>
                             </a>
@@ -633,7 +899,7 @@ ob_start();
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted"><?php echo __('status'); ?></label>
                             <p><span
-                                    class="<?php echo getPrescriptionStatusClass($prescription['status'] ?? 'UNKNOWN'); ?>"><?php echo ucfirst(strtolower($prescription['status'] ?? __('unknown'))); ?></span>
+                                    class="<?php echo getPrescriptionStatusClass($prescription['status'] ?? 'UNKNOWN'); ?>"><?php echo getPrescriptionStatusText($prescription['status'] ?? 'UNKNOWN'); ?></span>
                             </p>
                         </div>
 
@@ -646,15 +912,16 @@ ob_start();
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted"><?php echo __('doctor'); ?></label>
-                            <p class="fw-bold"><?php echo sprintf(__('doctor_title_name'), htmlspecialchars(getDoctorName($prescription['doctorId'], $users))); ?></p>
+                            <p class="fw-bold"><?php echo htmlspecialchars(formatDoctorTitle(getDoctorName($prescription['doctorId'], $users))); ?></p>
                             <small class="text-muted"><?php echo __('doctor_id_label') ?? __('id'); ?>: <?php echo htmlspecialchars($prescription['doctorId']); ?></small>
                         </div>
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted"><?php echo __('created_date_label'); ?></label>
                             <p class="fw-bold">
-                                <?php echo isset($prescription['createdAt']) ? date('l, F j, Y \a\t H:i', strtotime($prescription['createdAt'])) : __('not_provided'); ?>
+                                <?php echo formatLocalizedDate($prescription['createdAt']); ?>
                             </p>
+                            <small class="text-muted"><?php echo formatLocalizedDayName($prescription['createdAt']); ?></small>
                         </div>
 
                         <?php if ($prescription['appointmentId'] ?? false): ?>
@@ -819,7 +1086,7 @@ ob_start();
         }
 
         // Dynamic medication form
-        let medicationCount = 1;
+        let medicationCount = document.querySelectorAll('.medication-item').length || 1;
 
         document.getElementById('addMedication').addEventListener('click', function () {
             medicationCount++;

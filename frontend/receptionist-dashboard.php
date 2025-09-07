@@ -9,6 +9,18 @@ requireRole('RECEPTIONIST');
 $pageTitle = __('receptionist_dashboard');
 $user = getCurrentUser();
 
+// Fetch real user data from API for display
+$realUserData = $user;
+if (isset($user['id']) && function_exists('makeApiCall')) {
+    $token = $_SESSION['token'] ?? '';
+    if (!empty($token)) {
+        $userResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+        if ($userResponse['status_code'] === 200 && isset($userResponse['data'])) {
+            $realUserData = $userResponse['data'];
+        }
+    }
+}
+
 // Initialize stats
 $stats = [
     'patients' => ['total' => 0, 'today' => 0],
@@ -110,7 +122,7 @@ ob_start();
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_user'), sanitize($user['fullName'] ?? $user['email'] ?? __('receptionist'))); ?> 🏥</h1>
+                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_user'), sanitize($realUserData['fullName'] ?? $realUserData['email'] ?? __('receptionist'))); ?> 🏥</h1>
                 <p class="text-muted mb-0">
                     <?php echo __('reception_dashboard'); ?> • <?php echo sprintf(__('today_is'), date('l, F j, Y')); ?>
                 </p>
@@ -316,7 +328,7 @@ ob_start();
                                     </td>
                                     <td>
                                         <span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>">
-                                            <?php echo ucfirst(strtolower($appointment['status'] ?? __('unknown'))); ?>
+                                            <?php echo getAppointmentStatusText($appointment['status'] ?? 'UNKNOWN'); ?>
                                         </span>
                                     </td>
                                     <td>

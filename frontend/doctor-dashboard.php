@@ -9,6 +9,18 @@ requireRole('DOCTOR');
 $pageTitle = __('doctor_dashboard');
 $user = getCurrentUser();
 
+// Fetch real user data from API for display
+$realUserData = $user;
+if (isset($user['id']) && function_exists('makeApiCall')) {
+    $token = $_SESSION['token'] ?? '';
+    if (!empty($token)) {
+        $userResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+        if ($userResponse['status_code'] === 200 && isset($userResponse['data'])) {
+            $realUserData = $userResponse['data'];
+        }
+    }
+}
+
 // Initialize stats
 $stats = [
     'patients' => ['total' => 0, 'today' => 0],
@@ -119,13 +131,13 @@ ob_start();
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_doctor'), sanitize($user['fullName'] ?? $user['email'] ?? __('doctor'))); ?></h1>
+                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_doctor'), sanitize($realUserData['fullName'] ?? $realUserData['email'] ?? __('doctor'))); ?></h1>
                 <p class="text-muted mb-0">
-                    <?php echo sprintf(__('doctor_dashboard_today'), date('l, F j, Y')); ?>
+                    <?php echo sprintf(__('doctor_dashboard_today'), formatFullDateVietnamese()); ?>
                 </p>
             </div>
             <div class="text-end">
-                <small class="text-muted"><?php echo sprintf(__('last_login'), isset($_SESSION['login_time']) ? date('M j, Y H:i', $_SESSION['login_time']) : __('not_provided')); ?></small>
+                <small class="text-muted"><?php echo sprintf(__('last_login'), isset($_SESSION['login_time']) ? formatDateTimeVietnamese($_SESSION['login_time']) : __('not_provided')); ?></small>
             </div>
         </div>
     </div>
@@ -226,7 +238,7 @@ ob_start();
                         <?php echo __('view_my_appointments'); ?>
                     </a>
                     
-                    <a href="appointments.php?action=add" class="btn btn-outline-success">
+                    <a href="appointments.php?action=add&doctor_id=<?php echo urlencode($user['id']); ?>" class="btn btn-outline-success">
                         <i class="bi bi-calendar-plus"></i>
                         <?php echo __('schedule_appointment'); ?>
                     </a>
@@ -293,7 +305,7 @@ ob_start();
                                     </td>
                                     <td>
                                         <span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>">
-                                            <?php echo ucfirst(strtolower($appointment['status'] ?? __('unknown'))); ?>
+                                            <?php echo getAppointmentStatusText($appointment['status'] ?? 'UNKNOWN'); ?>
                                         </span>
                                     </td>
                                     <td>

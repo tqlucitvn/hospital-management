@@ -120,7 +120,7 @@ $token = $_SESSION['token'];
                             
                             echo __('patient_label') . ": <span class='" . ($patientName !== __('unknown_patient') ? 'success' : 'error') . "'>" . htmlspecialchars($patientName) . "</span><br>";
                             echo __('doctor_label') . ": <span class='" . ($doctorName !== sprintf(__('doctor_title_name'), __('unknown_doctor')) ? 'success' : 'error') . "'>" . htmlspecialchars($doctorName) . "</span><br>";
-                            echo __('status_label') . ": " . htmlspecialchars($appointment['status'] ?? __('unknown')) . "<br>";
+                            echo __('status_label') . ": " . htmlspecialchars(getAppointmentStatusText($appointment['status'] ?? 'UNKNOWN')) . "<br>";
                             echo "<a href='appointments.php' class='btn btn-sm btn-success mt-2'>" . __('view_appointments_page') . "</a>";
                             echo "</div>";
                         } else {

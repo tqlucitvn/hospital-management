@@ -14,6 +14,8 @@ router.post('/register', userController.register);
 router.post('/login', userController.login);
 
 // Admin protected - specific routes first
+router.get('/doctors', auth(['ADMIN', 'RECEPTIONIST', 'NURSE']), userController.listDoctors);
+router.get('/me', auth(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']), userController.getMyProfile);
 router.patch('/:id/role', auth(['ADMIN']), userController.updateUserRole);
 router.put('/:id', auth(['ADMIN']), userController.updateUser); // <-- add update user info
 router.get('/:id', auth(['ADMIN']), userController.getUserById);

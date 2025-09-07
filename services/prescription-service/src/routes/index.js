@@ -39,6 +39,7 @@ router.get('/stats/monthly', auth(['ADMIN']), async (req, res) => {
 });
 
 router.get('/:id', auth(['DOCTOR', 'NURSE', 'ADMIN']), c.getOne);
+router.put('/:id', auth(['DOCTOR', 'ADMIN']), c.update);
 router.patch('/:id/status', auth(['DOCTOR', 'ADMIN']), c.updateStatus);
 router.delete('/:id', auth(['ADMIN']), c.delete);
 

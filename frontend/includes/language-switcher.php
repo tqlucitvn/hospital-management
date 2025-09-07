@@ -3,6 +3,7 @@
 // This file should be included in layouts where language switching is needed
 
 // Ensure language system is loaded
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/language.php';
 
 $currentLang = getCurrentLanguage();

@@ -8,6 +8,18 @@ requireAuth();
 $pageTitle = __('dashboard');
 $user = getCurrentUser();
 
+// Fetch real user data from API for display
+$realUserData = $user;
+if (isset($user['id']) && function_exists('makeApiCall')) {
+    $token = $_SESSION['token'] ?? '';
+    if (!empty($token)) {
+        $userResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+        if ($userResponse['status_code'] === 200 && isset($userResponse['data'])) {
+            $realUserData = $userResponse['data'];
+        }
+    }
+}
+
 // Initialize stats
 $stats = [
     'patients' => ['total' => 0, 'today' => 0],
@@ -260,14 +272,14 @@ ob_start();
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_user'), sanitize($user['fullName'] ?? $user['email'] ?? __('user'))); ?> 👋</h1>
+                <h1 class="h3 mb-1"><?php echo sprintf(__('welcome_back_user'), sanitize($realUserData['fullName'] ?? $realUserData['email'] ?? __('user'))); ?> 👋</h1>
                 <p class="text-muted mb-0">
-                    <?php echo getRoleDisplayName($user['role'] ?? 'USER'); ?> • 
-                    <?php echo sprintf(__('today_is'), date('l, F j, Y')); ?>
+                    <?php echo getRoleDisplayName($realUserData['role'] ?? 'USER'); ?> • 
+                    <?php echo sprintf(__('today_is'), formatFullDateVietnamese()); ?>
                 </p>
             </div>
             <div class="text-end">
-                <small class="text-muted"><?php echo isset($_SESSION['login_time']) ? sprintf(__('last_login'), date('M j, Y H:i', $_SESSION['login_time'])) : __('not_provided'); ?></small>
+                <small class="text-muted"><?php echo isset($_SESSION['login_time']) ? sprintf(__('last_login'), formatDateTimeVietnamese($_SESSION['login_time'])) : __('not_provided'); ?></small>
             </div>
         </div>
     </div>
@@ -404,7 +416,14 @@ ob_start();
                     <?php endif; ?>
                     
                     <?php if (hasAnyRole(['ADMIN', 'RECEPTIONIST', 'DOCTOR'])): ?>
-                    <a href="appointments.php?action=add" class="btn btn-outline-success">
+                    <?php 
+                    $appointmentAddUrl = 'appointments.php?action=add';
+                    // If user is DOCTOR, preselect themselves
+                    if ($user['role'] === 'DOCTOR') {
+                        $appointmentAddUrl .= '&doctor_id=' . urlencode($user['id']);
+                    }
+                    ?>
+                    <a href="<?php echo $appointmentAddUrl; ?>" class="btn btn-outline-success">
                         <i class="bi bi-calendar-plus"></i>
                         <?php echo __('schedule_appointment'); ?>
                     </a>
@@ -513,7 +532,7 @@ ob_start();
                                 </small>
                             </div>
                             <span class="<?php echo getAppointmentStatusClass($appointment['status'] ?? 'UNKNOWN'); ?>">
-                                <?php echo ucfirst(strtolower($appointment['status'] ?? __('unknown'))); ?>
+                                <?php echo getAppointmentStatusText($appointment['status'] ?? 'UNKNOWN'); ?>
                             </span>
                         </div>
                         <?php endforeach; ?>

@@ -6,14 +6,17 @@ if (session_status() === PHP_SESSION_NONE) {
 
 function getCurrentLanguage() {
 	if (isset($_SESSION['language'])) {
+		error_log("DEBUG getCurrentLanguage() - Session language: " . $_SESSION['language']);
 		return $_SESSION['language'];
 	}
+	error_log("DEBUG getCurrentLanguage() - No session language, using default: vi");
 	// Default language
 	return 'vi';
 }
 
 function setLanguage($lang) {
 	$_SESSION['language'] = $lang;
+	error_log("DEBUG setLanguage() - Set language to: $lang");
 }
 
 function csrf_field() {
@@ -26,14 +29,22 @@ function csrf_field() {
 // Handle language change request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_language'])) {
 	$lang = $_POST['language'] ?? 'vi';
+	error_log("DEBUG Language change - POST received, language: $lang");
 	if (in_array($lang, ['vi', 'en'])) {
 		setLanguage($lang);
+		error_log("DEBUG Language change - Language set to: $lang");
 	}
 	exit(); // Stop processing after language change
 }
 
 function __($key) {
 	$lang = getCurrentLanguage();
+	
+	// Debug: Log current language and key
+	if ($key === 'issued') {
+		error_log("DEBUG __() - Key: $key, Current Language: $lang");
+	}
+	
 	$translations = [
 		'vi' => [
 			'access_denied' => 'Không có quyền truy cập',
@@ -131,6 +142,7 @@ function __($key) {
 			'create' => 'Tạo',
 			'create_patient' => 'Tạo bệnh nhân',
 			'create_prescription' => 'Tạo đơn thuốc',
+			'update_prescription' => 'Cập nhật đơn thuốc',
 			'create_system_backup' => 'Create System Backup',
 			'create_user' => 'Tạo người dùng',
 			'created' => 'Đã tạo',
@@ -163,8 +175,16 @@ function __($key) {
 			'doctor_dashboard' => 'Bảng điều khiển Bác sĩ',
 			'doctor_dashboard_today' => 'Bảng điều khiển Bác sĩ • Hôm nay là %s',
 			'doctor_fallback_id' => 'Doctor #%s',
+			'doctor_field_locked_add_message' => 'Bác sĩ chỉ có thể tạo cuộc hẹn cho chính mình',
+			'doctor_field_locked_edit_message' => 'Bạn không thể thay đổi bác sĩ phụ trách khi chỉnh sửa cuộc hẹn của chính mình',
+			'doctor_field_locked_message' => 'Bạn không thể thay đổi bác sĩ phụ trách khi chỉnh sửa cuộc hẹn của chính mình',
 			'doctor_id_label' => 'ID bác sĩ',
 			'doctor_label' => 'Bác sĩ',
+			'doctor_selected_from_appointment' => 'Bác sĩ được chọn từ cuộc hẹn',
+			'patient_cannot_be_changed' => 'Bệnh nhân không thể thay đổi khi chỉnh sửa đơn thuốc',
+			'doctor_cannot_be_changed' => 'Bác sĩ không thể thay đổi khi chỉnh sửa đơn thuốc',
+			'appointment_cannot_be_changed' => 'Cuộc hẹn liên quan không thể thay đổi khi chỉnh sửa đơn thuốc',
+			'appointment_selected_automatically' => 'Cuộc hẹn được chọn tự động',
 			'doctor_name' => 'Tên bác sĩ',
 			'doctor_title_name' => 'Bác sĩ %s',
 			'doctor_tools' => 'Công cụ cho bác sĩ',
@@ -237,7 +257,7 @@ function __($key) {
 			'frequency_label' => 'Tần suất',
 			'full_name' => 'Họ và tên',
 			'gender' => 'Giới tính',
-			'general_settings_updated' => 'General settings updated successfully!',
+			'general_settings_updated' => 'Cài đặt chung đã được cập nhật thành công!',
 			'generate_and_download_reports' => 'Tạo và tải về báo cáo chi tiết ở nhiều định dạng.',
 			'generate_report' => 'Tạo báo cáo',
 			'generate_summaries' => 'Tạo báo cáo tóm tắt',
@@ -264,7 +284,7 @@ function __($key) {
 			'invalid_email_password' => 'Email hoặc mật khẩu không đúng',
 			'invalid_input' => 'Dữ liệu không hợp lệ',
 			'invalid_request' => 'Yêu cầu không hợp lệ',
-			'issued' => 'Issued',
+			'issued' => 'Đã kê đơn',
 			'item' => 'mục',
 			'items' => 'các mục',
 			'join_date' => 'Ngày tham gia',
@@ -276,7 +296,7 @@ function __($key) {
 			'language_vietnam_alt' => 'Vietnam flag',
 			'language_vietnamese' => 'Vietnamese',
 			'last' => 'Cuối',
-			'last_login' => 'Last login: %s',
+			'last_login' => 'Đăng nhập lần cuối: %s',
 			'last_login_label' => 'Lần đăng nhập cuối',
 			'last_name' => 'Họ',
 			'leave_blank_to_keep_current' => '(để trống nếu giữ nguyên)',
@@ -368,8 +388,8 @@ function __($key) {
 			'notes' => 'Ghi chú',
 			'notification_channels' => 'Kênh thông báo',
 			'notification_marked_read' => 'Thông báo đã được đánh dấu là đã đọc',
-			'notification_settings' => 'Notification Settings',
-			'notification_settings_updated' => 'Notification settings updated successfully!',
+			'notification_settings' => 'Cài đặt thông báo',
+			'notification_settings_updated' => 'Cài đặt thông báo đã được cập nhật thành công!',
 			'notification_types' => 'Loại thông báo',
 			'notifications' => 'Thông báo',
 			'nurse' => 'Y tá',
@@ -377,7 +397,7 @@ function __($key) {
 			'nursing_dashboard' => 'Bảng điều khiển Điều dưỡng',
 			'nursing_tools_resources' => 'Công cụ & Tài nguyên điều dưỡng',
 			'of' => 'của',
-			'one_hour' => '1 hour',
+			'one_hour' => '1 giờ',
 			'operation_failed' => 'Thao tác thất bại',
 			'operation_success' => 'Thao tác hoàn thành thành công',
 			'operation_successful' => 'Thao tác thành công',
@@ -492,8 +512,8 @@ function __($key) {
 			'sample_patient_data' => 'Dữ liệu bệnh nhân mẫu:',
 			'sample_prescription_data' => 'Dữ liệu đơn thuốc mẫu:',
 			'sample_user_data_label' => 'Dữ liệu người dùng mẫu:',
-			'save' => 'Lưu',
-			'save_appointment_settings' => 'Lưu cài đặt cuộc hẹn',
+			'save' => 'Save',
+			'save_appointment_settings' => 'Save Appointment Settings',
 			'save_notification_settings' => 'Lưu cài đặt thông báo',
 			'save_preferences' => 'Lưu tùy chọn',
 			'save_settings' => 'Lưu cài đặt',
@@ -509,7 +529,7 @@ function __($key) {
 			'search_users' => 'Tìm kiếm người dùng...',
 			'secure' => 'An toàn',
 			'security' => 'Bảo mật',
-			'security_settings_updated' => 'Security settings updated successfully!',
+			'security_settings_updated' => 'Cài đặt bảo mật đã được cập nhật thành công!',
 			'select_appointment_optional' => 'Chọn cuộc hẹn (tùy chọn)...',
 			'select_date' => 'Chọn ngày',
 			'select_doctor' => 'Chọn bác sĩ',
@@ -565,23 +585,23 @@ function __($key) {
 			'time_format' => 'Định dạng giờ',
 			'time_format_12' => '12 giờ (AM/PM)',
 			'time_format_24' => '24 giờ',
-			'timezone' => 'Timezone',
+			'timezone' => 'Múi giờ',
 			'today' => 'Hôm nay',
-			'today_is' => 'Today is %s',
+			'today_is' => 'Hôm nay là %s',
 			'total' => 'Tổng cộng',
 			'total_appointments' => 'Tổng số cuộc hẹn',
-			'total_notifications' => 'Total Notifications',
+			'total_notifications' => 'Tổng số thông báo',
 			'total_patients' => 'Tổng số bệnh nhân',
 			'total_prescriptions' => 'Tổng đơn thuốc',
 			'try_adjust_search' => 'Hãy thử điều chỉnh tiêu chí tìm kiếm',
-			'two_factor_auth' => 'Two-Factor Authentication',
+			'two_factor_auth' => 'Xác thực hai yếu tố',
 			'twofa_enabled' => '2FA kích hoạt',
 			'unknown' => 'Không rõ',
-			'unknown_doctor' => 'Unknown Doctor',
+			'unknown_doctor' => 'Bác sĩ không rõ',
 			'unknown_drug' => 'Thuốc không rõ',
-			'unknown_patient' => 'Unknown Patient',
+			'unknown_patient' => 'Bệnh nhân không rõ',
 			'unread_messages' => 'Thông báo chưa đọc',
-			'unread_notifications' => 'Unread Notifications',
+			'unread_notifications' => 'Thông báo chưa đọc',
 			'update' => 'Cập nhật',
 			'update_appointment' => 'Cập nhật cuộc hẹn',
 			'update_information' => 'Cập nhật thông tin',
@@ -737,6 +757,7 @@ function __($key) {
 			'create' => 'Create',
 			'create_patient' => 'Create patient',
 			'create_prescription' => 'Create Prescription',
+			'update_prescription' => 'Update Prescription',
 			'create_system_backup' => 'Create system backup',
 			'create_user' => 'Create User',
 			'created' => 'Created',
@@ -769,9 +790,17 @@ function __($key) {
 			'doctor_dashboard' => 'Doctor Dashboard',
 			'doctor_dashboard_today' => 'Doctor Dashboard • Today is %s',
 			'doctor_fallback_id' => 'Doctor #%s',
+			'doctor_field_locked_add_message' => 'Doctors can only create appointments for themselves',
+			'doctor_field_locked_edit_message' => 'You cannot change the doctor when editing your own appointment',
+			'doctor_field_locked_message' => 'You cannot change the doctor when editing your own appointment',
 			'doctor_id_label' => 'Doctor ID',
 			'doctor_label' => 'Doctor',
 			'doctor_name' => 'Doctor Name',
+			'doctor_selected_from_appointment' => 'Doctor selected from appointment',
+			'patient_cannot_be_changed' => 'Patient cannot be changed when editing prescription',
+			'doctor_cannot_be_changed' => 'Doctor cannot be changed when editing prescription',
+			'appointment_cannot_be_changed' => 'Related appointment cannot be changed when editing prescription',
+			'appointment_selected_automatically' => 'Appointment selected automatically',
 			'doctor_title_name' => 'Dr. %s',
 			'doctor_tools' => 'Doctor Tools',
 			'dosage' => 'Dosage',
@@ -870,7 +899,7 @@ function __($key) {
 			'invalid_email_password' => 'Invalid email or password',
 			'invalid_input' => 'Invalid input',
 			'invalid_request' => 'Invalid request.',
-			'issued' => 'Issued',
+			'issued' => 'Prescribed',
 			'item' => 'item',
 			'items' => 'items',
 			'join_date' => 'Join Date',
@@ -1097,17 +1126,17 @@ function __($key) {
 			'sample_notification_2' => 'Sample notification 2',
 			'sample_patient_data' => 'Sample Patient Data:',
 			'sample_prescription_data' => 'Sample Prescription Data:',
-			'sample_user_data_label' => 'Sample User Data:',
-			'save' => 'Save',
-			'save_appointment_settings' => 'Save Appointment Settings',
-			'save_notification_settings' => 'Save Notification Settings',
-			'save_preferences' => 'Save Preferences',
-			'save_settings' => 'Save Settings',
-			'schedule_and_manage' => 'Schedule & manage',
-			'schedule_appointment' => 'Schedule Appointment',
-			'schedule_assist' => 'Schedule & assist',
-			'scheduled_maintenance_time' => 'Scheduled maintenance at %s',
-			'search' => 'Search',
+			'sample_user_data_label' => 'Dữ liệu người dùng mẫu:',
+			'save' => 'Lưu',
+			'save_appointment_settings' => 'Lưu cài đặt cuộc hẹn',
+			'save_notification_settings' => 'Lưu cài đặt thông báo',
+			'save_preferences' => 'Lưu tùy chọn',
+			'save_settings' => 'Lưu cài đặt',
+			'schedule_and_manage' => 'Lên lịch & quản lý',
+			'schedule_appointment' => 'Lên lịch cuộc hẹn',
+			'schedule_assist' => 'Lên lịch & hỗ trợ',
+			'scheduled_maintenance_time' => 'Bảo trì theo lịch vào %s',
+			'search' => 'Tìm kiếm',
 			'search_and_manage_patients' => 'Search & manage patients',
 			'search_appointments' => 'Search appointments...',
 			'search_patients' => 'Search Patients',
@@ -1122,21 +1151,21 @@ function __($key) {
 			'select_gender' => 'Select Gender',
 			'select_patient' => 'Select Patient',
 			'select_role' => 'Select a role...',
-			'select_time' => 'Select Time',
-			'server_error_status' => 'Server error (Status: %s)',
+			'select_time' => 'Chọn thời gian',
+			'server_error_status' => 'Lỗi máy chủ (Trạng thái: %s)',
 			'server_software' => 'Server software',
-			'services' => 'Services',
-			'session_expired' => 'Your session has expired. Please login again.',
+			'services' => 'Dịch vụ',
+			'session_expired' => 'Phiên của bạn đã hết hạn. Vui lòng đăng nhập lại.',
 			'session_timeout_label' => 'Session timeout (minutes)',
-			'settings' => 'Settings',
-			'show' => 'Show',
-			'showing_appointments_range' => 'Showing %s to %s of %s appointments',
-			'showing_prescriptions_range' => 'Showing %s to %s of %s prescriptions',
-			'showing_users_range' => 'Showing %s to %s of %s users',
+			'settings' => 'Cài đặt',
+			'show' => 'Hiển thị',
+			'showing_appointments_range' => 'Hiển thị %s đến %s của %s cuộc hẹn',
+			'showing_prescriptions_range' => 'Hiển thị %s đến %s của %s đơn thuốc',
+			'showing_users_range' => 'Hiển thị %s đến %s của %s người dùng',
 			'site_short' => 'HMS',
 			'slot_duration_label' => 'Slot duration (minutes)',
-			'sms_notifications' => 'SMS Notifications',
-			'specialty' => 'Specialty',
+			'sms_notifications' => 'Thông báo SMS',
+			'specialty' => 'Chuyên khoa',
 			'start_by_adding_first_patient' => 'Start by adding your first patient',
 			'start_date_time' => 'Start Date & Time',
 			'statistics' => 'Statistics',
@@ -1249,7 +1278,14 @@ function __($key) {
 		]
 	];
 
-	return $translations[$lang][$key] ?? $key;
+	$result = $translations[$lang][$key] ?? $key;
+	
+	// Debug: Log result for 'issued' key
+	if ($key === 'issued') {
+		error_log("DEBUG __() - Key: $key, Language: $lang, Result: $result");
+	}
+	
+	return $result;
 }
 
 ?>
