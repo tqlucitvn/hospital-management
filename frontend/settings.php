@@ -13,7 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'general_settings':
-                // TODO: Save general settings
+                // Save general settings (basic server-side handling)
+                // Persist selected language into session so UI switches immediately
+                if (isset($_POST['language'])) {
+                    $lang = $_POST['language'];
+                    if (in_array($lang, ['vi', 'en'])) {
+                        // setLanguage is defined in includes/language.php
+                        setLanguage($lang);
+                    }
+                }
+                // TODO: Persist other general settings to database/config
                 $success = __('general_settings_updated');
                 break;
             case 'notification_settings':
@@ -37,13 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Mock current settings (in real system, load from database)
 $settings = [
     'general' => [
-        'hospital_name' => 'Central Hospital',
-        'hospital_address' => '123 Medical Street, Health City',
-        'hospital_phone' => '+1 (555) 123-4567',
-        'hospital_email' => 'info@centralhospital.com',
-        'timezone' => 'America/New_York',
-        'language' => 'en',
-        'date_format' => 'Y-m-d',
+        'hospital_name' => 'Bệnh viện Tâm An',
+        'hospital_address' => '123 Đường Y Tế, Quận 1, TP.HCM',
+        'hospital_phone' => '+84 (028) 123-4567',
+        'hospital_email' => 'info@benhvientaman.com',
+        'timezone' => 'Asia/Ho_Chi_Minh',
+        'language' => 'vi',
+        'date_format' => 'd/m/Y',
         'time_format' => '24h'
     ],
     'appointment' => [
@@ -166,10 +175,10 @@ ob_start();
                                         <div class="mb-3">
                                             <label for="timezone" class="form-label"><?php echo __('timezone'); ?></label>
                                             <select class="form-control" id="timezone" name="timezone">
-                                                <option value="America/New_York" <?php echo $settings['general']['timezone'] === 'America/New_York' ? 'selected' : ''; ?>><?php echo __('eastern_time'); ?></option>
-                                                <option value="America/Chicago" <?php echo $settings['general']['timezone'] === 'America/Chicago' ? 'selected' : ''; ?>><?php echo __('central_time'); ?></option>
-                                                <option value="America/Denver" <?php echo $settings['general']['timezone'] === 'America/Denver' ? 'selected' : ''; ?>><?php echo __('mountain_time'); ?></option>
-                                                <option value="America/Los_Angeles" <?php echo $settings['general']['timezone'] === 'America/Los_Angeles' ? 'selected' : ''; ?>><?php echo __('pacific_time'); ?></option>
+                                                <option value="Asia/Ho_Chi_Minh" <?php echo $settings['general']['timezone'] === 'Asia/Ho_Chi_Minh' ? 'selected' : ''; ?>><?php echo __('vietnam_time'); ?></option>
+                                                <option value="Asia/Bangkok" <?php echo $settings['general']['timezone'] === 'Asia/Bangkok' ? 'selected' : ''; ?>><?php echo __('thailand_time'); ?></option>
+                                                <option value="Asia/Singapore" <?php echo $settings['general']['timezone'] === 'Asia/Singapore' ? 'selected' : ''; ?>><?php echo __('singapore_time'); ?></option>
+                                                <option value="Asia/Tokyo" <?php echo $settings['general']['timezone'] === 'Asia/Tokyo' ? 'selected' : ''; ?>><?php echo __('japan_time'); ?></option>
                                             </select>
                                         </div>
                                         <div class="mb-3">
@@ -177,8 +186,7 @@ ob_start();
                                             <select class="form-control" id="language" name="language">
                                                 <option value="en" <?php echo $settings['general']['language'] === 'en' ? 'selected' : ''; ?>><?php echo __('english'); ?></option>
                                                 <option value="vi" <?php echo $settings['general']['language'] === 'vi' ? 'selected' : ''; ?>><?php echo __('language_vietnamese'); ?></option>
-                                                    <option value="24h" <?php echo $settings['general']['time_format'] === '24h' ? 'selected' : ''; ?>><?php echo __('time_format_24'); ?></option>
-                                                    <option value="12h" <?php echo $settings['general']['time_format'] === '12h' ? 'selected' : ''; ?>><?php echo __('time_format_12'); ?></option>
+                                            </select>
                                         </div>
                                         <div class="mb-3">
                                             <label for="date_format" class="form-label"><?php echo __('date_format'); ?></label>
@@ -198,10 +206,10 @@ ob_start();
                                     </div>
                                 </div>
                                 <button type="submit" class="btn btn-primary">
-                                                    <option value="15" <?php echo $settings['appointment']['slot_duration'] == 15 ? 'selected' : ''; ?>><?php echo __('minutes_15'); ?></option>
-                                                    <option value="30" <?php echo $settings['appointment']['slot_duration'] == 30 ? 'selected' : ''; ?>><?php echo __('minutes_30'); ?></option>
-                                                    <option value="45" <?php echo $settings['appointment']['slot_duration'] == 45 ? 'selected' : ''; ?>><?php echo __('minutes_45'); ?></option>
-                                                    <option value="60" <?php echo $settings['appointment']['slot_duration'] == 60 ? 'selected' : ''; ?>><?php echo __('minutes_60'); ?></option>
+                                    <i class="bi bi-save"></i> <?php echo __('save_general_settings'); ?>
+                                </button>
+                            </form>
+                        </div>
 
                         <!-- Appointment Settings -->
                         <div class="tab-pane fade" id="appointments" role="tabpanel">
@@ -342,7 +350,7 @@ ob_start();
 
                         <!-- System Info -->
                         <div class="tab-pane fade" id="system" role="tabpanel">
-                                <div class="row">
+                            <div class="row">
                                 <div class="col-md-6">
                                     <h6><?php echo __('system_information'); ?></h6>
                                     <table class="table table-sm">
@@ -385,6 +393,7 @@ ob_start();
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     </div>

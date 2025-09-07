@@ -10,10 +10,12 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
+\usepackage{pifont}
 \usepackage{tabularx}
 \usepackage{longtable}
 \usepackage{multirow}
 \usepackage{array}
+\usepackage{float}
 \usepackage[T5]{fontenc}
 \usepackage{lmodern}
 \usepackage{tikz}
@@ -102,17 +104,18 @@
     {\huge\textbf{BÁO CÁO ĐỒ ÁN}}\\
     \vspace{0.5cm}
     {\Large\textbf{HỆ THỐNG QUẢN LÝ BỆNH VIỆN}}\\
-    {\Large\textbf{(HOSPITAL MANAGEMENT SYSTEM)}}\\
+    % {\Large\textbf{(HOSPITAL MANAGEMENT SYSTEM)}}\\
     \vspace{1cm}
     
     {\large\textbf{Môn học: Ứng dụng phân tán}}\\
     \vspace{2cm}
     
     \begin{tabular}{ll}
-    	\textbf{Sinh viên thực hiện:} & Trần Quang Lực \\
-    	\textbf{MSSV:} & 18127147 \\
-    	\textbf{Lớp:} & 18CLC3 \\
-    	\textbf{Giảng viên hướng dẫn:} & Thạc sĩ Nguyễn Trường Sơn \\
+    		extbf{Nhóm thực hiện:} & Nhóm 13 \\
+    		extbf{Thành viên:} & Trần Quang Lực \\
+    		extbf{MSSV:} & 18127147 \\
+    		extbf{Lớp:} & 18CLC3 \\
+    		extbf{Giảng viên hướng dẫn:} & Thạc sĩ Nguyễn Trường Sơn \\
     & Thạc sĩ Phạm Minh Tú \\
     \end{tabular}
     
@@ -130,7 +133,7 @@ Về mặt kỹ thuật, hệ thống được triển khai với 5 microservice
 
 Kết quả đạt được bao gồm một hệ thống hoàn chỉnh với các chức năng cốt lõi đầy đủ, hiệu suất tốt (thời gian phản hồi < 500ms), khả năng mở rộng cao, và giao diện người dùng thân thiện. Hệ thống đã được kiểm thử toàn diện với kiểm thử đơn vị (unit tests), kiểm thử tích hợp (integration tests) và kiểm thử đầu cuối (end-to-end tests), đạt độ bao phủ mã nguồn > 80\%.
 
-	extbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Healthcare Management, Docker, RabbitMQ, JWT Authentication, Role-based Access Control
+        extbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Docker, RabbitMQ, JWT, Phân quyền theo vai trò
 \end{abstract}
 
 \tableofcontents
@@ -163,6 +166,157 @@ Xây dựng hệ thống quản lý bệnh viện hoàn chỉnh với kiến tr�
     \item Xây dựng API RESTful
     \item Tích hợp hệ thống gửi email tự động
 \end{itemize}
+
+\section{Phân công công việc}
+
+Đề tài được thực hiện bởi nhóm ban đầu 3 thành viên, tuy nhiên trong quá trình thực hiện, 2 thành viên đã bỏ môn và không hoàn thành các task được phân công. Do đó, toàn bộ đề tài được thực hiện bởi trưởng nhóm.
+
+\begin{table}[H]
+\centering
+\caption{Bảng phân công công việc nhóm}
+\begin{tabular}{|p{3cm}|p{4cm}|p{6cm}|p{2cm}|}
+\hline
+\textbf{Thành viên} & \textbf{Vai trò} & \textbf{Công việc được giao} & \textbf{Tỷ lệ hoàn thành} \\
+\hline
+\multirow{15}{3cm}{\textbf{Trần Quang Lực} \\ MSSV: 18127147 \\ \textit{Trưởng nhóm}} & 
+\multirow{15}{4cm}{Trưởng nhóm kiêm Kiến trúc sư hệ thống} & 
+Thiết kế kiến trúc hệ thống & 100\% \\
+\cline{3-4}
+& & Phát triển backend (5 microservices) & 100\% \\
+\cline{3-4}
+& & Thiết kế và tối ưu cơ sở dữ liệu & 100\% \\
+\cline{3-4}
+& & Xác thực và phân quyền & 100\% \\
+\cline{3-4}
+& & Tích hợp hàng đợi tin nhắn (RabbitMQ) & 100\% \\
+\cline{3-4}
+& & DevOps và đóng gói (Docker) & 100\% \\
+\cline{3-4}
+& & Xây dựng framework kiểm thử (đơn vị/tích hợp/đầu cuối) & 100\% \\
+\cline{3-4}
+& & Tài liệu API & 100\% \\
+\cline{3-4}
+& & Phát triển frontend (PHP + Bootstrap) & 100\% \\
+\cline{3-4}
+& & Hệ thống thông báo email & 100\% \\
+\cline{3-4}
+& & Triển khai bảo mật & 100\% \\
+\cline{3-4}
+& & Tối ưu hiệu năng & 100\% \\
+\cline{3-4}
+& & Tài liệu kỹ thuật & 100\% \\
+\cline{3-4}
+& & Quản lý dự án & 100\% \\
+\cline{3-4}
+& & Soạn thảo báo cáo & 100\% \\
+\hline
+\multirow{3}{3cm}{\textbf{Thành viên 2} \\ \textit{Đã bỏ môn}} & 
+\multirow{3}{4cm}{Chuyên viên Frontend \\ \textit{(Đã rút khỏi nhóm)}} & 
+Hỗ trợ thiết kế giao diện (UI/UX) & 0\% \\
+\cline{3-4}
+& & Phát triển thành phần giao diện & 0\% \\
+\cline{3-4}
+& & Hỗ trợ kiểm thử thủ công & 0\% \\
+\hline
+\multirow{3}{3cm}{\textbf{Thành viên 3} \\ \textit{Đã bỏ môn}} & 
+\multirow{3}{4cm}{Tài liệu \& Kiểm thử \\ \textit{(Đã rút khỏi nhóm)}} & 
+Soạn thảo tài liệu hệ thống & 0\% \\
+\cline{3-4}
+& & Kiểm thử tổng quát & 0\% \\
+\cline{3-4}
+& & Hỗ trợ nghiên cứu & 0\% \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Ghi chú quan trọng:} Do 2 thành viên còn lại đã bỏ môn học trong quá trình thực hiện đề tài và không hoàn thành bất kỳ công việc nào được phân công, Trần Quang Lực đã đảm nhận 100\% khối lượng công việc của toàn bộ đề tài, bao gồm cả việc thiết kế hệ thống, phát triển backend và frontend, testing, documentation, và project management.
+
+\section{Tổng quan chức năng đã triển khai}
+
+Bảng dưới đây tổng hợp toàn bộ chức năng đã được triển khai thành công trong hệ thống:
+
+\begin{table}[H]
+\centering
+\caption{Bảng tổng quan các chức năng đã hoàn thành}
+\begin{tabular}{|p{4cm}|p{8cm}|p{2.5cm}|}
+\hline
+\textbf{Module/Component} & \textbf{Chức năng chi tiết} & \textbf{Trạng thái} \\
+\hline
+\multirow{6}{4cm}{\textbf{Quản lý Người dùng}} & 
+Xác thực người dùng với JWT tokens & Hoàn thành \\
+\cline{2-3}
+& Kiểm soát truy cập dựa trên vai trò (4 vai trò: Admin, Doctor, Nurse, Receptionist) & Hoàn thành \\
+\cline{2-3}
+& Mã hóa mật khẩu với bcrypt & Hoàn thành \\
+\cline{2-3}
+& Các thao tác CRUD người dùng với xác thực & Hoàn thành \\
+\cline{2-3}
+& Quản lý phiên và đăng xuất tự động & Hoàn thành \\
+\cline{2-3}
+& Hỗ trợ đa ngôn ngữ (Tiếng Việt/Tiếng Anh) & Hoàn thành \\
+\hline
+\multirow{5}{4cm}{\textbf{Quản lý Bệnh nhân}} & Đăng ký bệnh nhân với xác thực & Hoàn thành \\
+\cline{2-3}
+& Quản lý hồ sơ bệnh nhân & Hoàn thành \\
+\cline{2-3}
+& Tìm kiếm và lọc bệnh nhân & Hoàn thành \\
+\cline{2-3}
+& Truy cập bệnh nhân theo vai trò (bác sĩ chỉ xem bệnh nhân của mình) & Hoàn thành \\
+\cline{2-3}
+& Theo dõi lịch sử bệnh nhân & Hoàn thành \\
+\hline
+\multirow{5}{4cm}{\textbf{Quản lý Lịch hẹn}} & Lập lịch hẹn với phát hiện xung đột & Hoàn thành \\
+\cline{2-3}
+& Quản lý trạng thái (Đang chờ, Đã xác nhận, Hoàn thành, Đã hủy) & Hoàn thành \\
+\cline{2-3}
+& Phân công bác sĩ-bệnh nhân & Hoàn thành \\
+\cline{2-3}
+& Xác thực khung thời gian & Hoàn thành \\
+\cline{2-3}
+& Lịch sử lịch hẹn và báo cáo & Hoàn thành \\
+\hline
+\multirow{6}{4cm}{\textbf{Quản lý Đơn thuốc}} & Tạo đơn thuốc chỉ dành cho bác sĩ & Hoàn thành \\
+\cline{2-3}
+& Đơn thuốc nhiều loại thuốc với hướng dẫn chi tiết & Hoàn thành \\
+\cline{2-3}
+& Quy trình trạng thái đơn thuốc (Đang chờ, Sẵn sàng, Đã cấp phát) & Hoàn thành \\
+\cline{2-3}
+& Quyền chỉnh sửa (chỉ bác sĩ, chỉ trước khi cấp phát) & Hoàn thành \\
+\cline{2-3}
+& Lọc theo vai trò (bác sĩ chỉ xem đơn thuốc của mình) & Hoàn thành \\
+\cline{2-3}
+& In đơn thuốc và xuất dữ liệu & Hoàn thành \\
+\hline
+\multirow{4}{4cm}{\textbf{Hệ thống Thông báo}} & Thông báo email tự động với mẫu chuyên nghiệp & Đang phát triển \\
+\cline{2-3}
+& Hàng đợi tin nhắn RabbitMQ cho xử lý bất đồng bộ & Đang phát triển \\
+\cline{2-3}
+& Giới hạn tốc độ và cơ chế thử lại & Chưa triển khai \\
+\cline{2-3}
+& Theo dõi trạng thái email và xử lý lỗi & Chưa triển khai \\
+\hline
+\multirow{4}{4cm}{\textbf{Bảng điều khiển \& Báo cáo}} & Bảng điều khiển theo vai trò với các chỉ số liên quan & Hoàn thành \\
+\cline{2-3}
+& Thống kê thời gian thực (người dùng, bệnh nhân, lịch hẹn, đơn thuốc) & Hoàn thành \\
+\cline{2-3}
+& Trực quan hóa dữ liệu với biểu đồ và đồ thị & Hoàn thành \\
+\cline{2-3}
+& Giám sát trạng thái hệ thống & Hoàn thành \\
+\hline
+\multirow{5}{4cm}{\textbf{Triển khai Kỹ thuật}} & 5 microservices độc lập với RESTful APIs & Hoàn thành \\
+\cline{2-3}
+& Containerization bằng Docker cho tất cả dịch vụ & Hoàn thành \\
+\cline{2-3}
+& Cơ sở dữ liệu PostgreSQL với đánh chỉ mục phù hợp & Hoàn thành \\
+\cline{2-3}
+& Kiểm thử toàn diện (Unit, Integration, E2E) với độ bao phủ >80\% & Hoàn thành \\
+\cline{2-3}
+& Triển khai sẵn sàng sản xuất với docker-compose & Hoàn thành \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Tổng kết:} Hệ thống đã triển khai thành công \textbf{30 chức năng chính} hoàn chỉnh và \textbf{4 chức năng} đang trong giai đoạn phát triển/chưa triển khai trên 7 module chính, đạt ~88\% yêu cầu cốt lõi và sẵn sàng cho việc phát triển tiếp theo.
 
 \section{Phạm vi đề tài}
 \subsection{Chức năng được triển khai}
@@ -348,7 +502,7 @@ Hệ thống quản lý bệnh viện có các tác nhân chính sau:
 \node[actor] (doctor) at (-7,0) {Doctor};
 \node[actor] (nurse) at (-7,-2) {Nurse};
 \node[actor] (receptionist) at (7,1) {Receptionist};
-\node[actor] (patient) at (7,-1) {Patient\\(Indirect)};
+\node[actor] (patient) at (7,-1) {Patient\\ (Indirect)};
 
 % Connections (simplified main ones)
 \draw (adminactor) -- (login);
@@ -735,7 +889,7 @@ const sendAppointmentConfirmation = async (appointmentData) => {
     \item AJAX for dynamic interactions
 \end{itemize}
 
-\subsection{Backend Services}
+\subsection{Dịch vụ Backend}
 \subsubsection{User Service (Port 3001)}
 \begin{itemize}
     \item Quản lý authentication và authorization
@@ -776,8 +930,8 @@ const sendAppointmentConfirmation = async (appointmentData) => {
     \item SMTP configuration
 \end{itemize}
 
-\subsection{Infrastructure}
-\subsubsection{Database}
+\subsection{Hạ tầng hệ thống}
+\subsubsection{Cơ sở dữ liệu}
 \begin{itemize}
     \item PostgreSQL cho mỗi service
     \item Database per service pattern
@@ -785,7 +939,7 @@ const sendAppointmentConfirmation = async (appointmentData) => {
     \item Migration management
 \end{itemize}
 
-\subsubsection{Message Queue}
+\subsubsection{Hàng đợi tin nhắn}
 \begin{itemize}
     \item RabbitMQ
     \item Event-driven architecture
@@ -793,7 +947,7 @@ const sendAppointmentConfirmation = async (appointmentData) => {
     \item Retry mechanisms
 \end{itemize}
 
-\subsubsection{Containerization}
+\subsubsection{Container hóa}
 \begin{itemize}
     \item Docker containers
     \item Docker Compose orchestration
@@ -814,7 +968,7 @@ const sendAppointmentConfirmation = async (appointmentData) => {
 ]
 
 % Frontend and Load Balancer
-\node[frontend] (frontend) at (0,6) {Frontend\\(PHP)\\Port 80};
+\node[frontend] (frontend) at (0,6) {Frontend\\ (PHP)\\Port 80};
 \node[gateway] (lb) at (-3,4.5) {Load\\Balancer};
 \node[gateway] (gateway) at (3,4.5) {API Gateway};
 
@@ -866,11 +1020,11 @@ const sendAppointmentConfirmation = async (appointmentData) => {
 % CHAPTER 4: THIẾT KẾ CHI TIẾT
 \chapter{Thiết kế chi tiết hệ thống}
 
-\section{Database Schema}
+\section{Lược đồ cơ sở dữ liệu}
 
-\subsection{Nguyên tắc thiết kế Database}
+\subsection{Nguyên tắc thiết kế cơ sở dữ liệu}
 
-\subsubsection{Database per Service Pattern}
+\subsubsection{Mô hình cơ sở dữ liệu riêng cho từng dịch vụ}
 Theo nguyên tắc microservices, mỗi service sở hữu database riêng biệt:
 
 \begin{itemize}
@@ -1242,19 +1396,85 @@ instructions & String & Hướng dẫn sử dụng \\
 \caption{Bảng PrescriptionItems}
 \end{longtable}
 
-\section{API Design}
+\subsection{Sơ đồ ERD (Entity Relationship Diagram)}
 
-\subsection{User Service APIs}
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+  entity/.style={rectangle, draw, fill=blue!20, minimum width=2.2cm, minimum height=1.4cm, text width=2cm, align=center, font=\scriptsize},
+  attribute/.style={ellipse, draw, fill=yellow!20, minimum width=1.2cm, minimum height=0.6cm, text width=1cm, align=center, font=\scriptsize},
+  relationship/.style={diamond, draw, fill=green!20, minimum width=1.5cm, minimum height=0.8cm, text width=1.3cm, align=center, font=\scriptsize},
+  isa/.style={triangle, draw, fill=orange!20, minimum width=0.8cm, minimum height=0.6cm}
+]
+
+% Entities - Repositioned and resized
+\node[entity] (user) at (0,8) {\textbf{Người dùng}\\id, email\\password\\role, isActive};
+\node[entity] (patient) at (-6,5) {\textbf{Bệnh nhân}\\id, fullName\\email, phone\\dateOfBirth, gender};
+\node[entity] (appointment) at (0,5) {\textbf{Lịch hẹn}\\id, patientId\\doctorId\\startTime, endTime\\status, notes};
+\node[entity] (prescription) at (6,5) {\textbf{Đơn thuốc}\\id, appointmentId\\status, notes\\dispensedBy};
+\node[entity] (prescitem) at (6,2) {\textbf{Chi tiết\\đơn thuốc}\\id, prescriptionId\\medicationName\\dosage, frequency};
+\node[entity] (emaillog) at (0,2) {\textbf{Nhật ký email}\\id, recipientEmail\\subject, emailType\\status, sentAt};
+
+% Relationships - Repositioned
+\node[relationship] (treats) at (-3,6.5) {điều\\trị};
+\node[relationship] (prescribes) at (3,6.5) {kê\\đơn};
+\node[relationship] (contains) at (6,3.5) {bao\\gồm};
+\node[relationship] (notifies) at (0,3.5) {thông\\báo};
+
+% Connections with cardinality
+\draw (user) -- (treats) node[midway, above] {1};
+\draw (treats) -- (patient) node[midway, above] {N};
+\draw (user) -- (appointment) node[midway, right] {1:N (bác sĩ)};
+\draw (patient) -- (appointment) node[midway, above] {1:N};
+\draw (appointment) -- (prescribes) node[midway, above] {1};
+\draw (prescribes) -- (prescription) node[midway, above] {1};
+\draw (prescription) -- (contains) node[midway, right] {1};
+\draw (contains) -- (prescitem) node[midway, right] {N};
+\draw (appointment) -- (notifies) node[midway, left] {1};
+\draw (notifies) -- (emaillog) node[midway, left] {N};
+
+% Cross-service indicators - Translated
+\node[above left] at (user.north west) {\small Dịch vụ người dùng};
+\node[above left] at (patient.north west) {\small Dịch vụ bệnh nhân};
+\node[above left] at (appointment.north west) {\small Dịch vụ lịch hẹn};
+\node[above left] at (prescription.north west) {\small Dịch vụ đơn thuốc};
+\node[below left] at (emaillog.south west) {\small Dịch vụ thông báo};
+
+\end{tikzpicture}
+\caption{Sơ đồ ERD tổng quan - Quan hệ giữa các thực thể chính}
+\end{figure}
+
+\subsubsection{Giải thích mối quan hệ}
+\begin{enumerate}
+    \item \textbf{Người dùng - Bệnh nhân (điều trị)}: Một bác sĩ có thể điều trị nhiều bệnh nhân (1:N)
+    \item \textbf{Người dùng - Lịch hẹn (bác sĩ)}: Một bác sĩ có thể có nhiều lịch hẹn (1:N)
+    \item \textbf{Bệnh nhân - Lịch hẹn}: Một bệnh nhân có thể có nhiều lịch hẹn (1:N)
+    \item \textbf{Lịch hẹn - Đơn thuốc (kê đơn)}: Một lịch hẹn có thể có một đơn thuốc (1:1)
+    \item \textbf{Đơn thuốc - Chi tiết đơn thuốc (bao gồm)}: Một đơn thuốc có nhiều loại thuốc (1:N)
+    \item \textbf{Lịch hẹn - Nhật ký email (thông báo)}: Một lịch hẹn có thể tạo nhiều thông báo (1:N)
+\end{enumerate}
+
+\subsubsection{Ràng buộc Cross-Service}
+Do kiến trúc microservices, các foreign key giữa services được xử lý qua:
 \begin{itemize}
-    \item \texttt{POST /auth/login} - Đăng nhập
-    \item \texttt{POST /auth/register} - Đăng ký (Admin only)
-    \item \texttt{GET /users} - Lấy danh sách users
-    \item \texttt{GET /users/:id} - Lấy thông tin user
-    \item \texttt{PUT /users/:id} - Cập nhật user
-    \item \texttt{DELETE /users/:id} - Xóa user
+    \item \textbf{API Validation}: Kiểm tra tồn tại của ID qua REST calls
+    \item \textbf{Event Synchronization}: Đồng bộ dữ liệu qua RabbitMQ
+    \item \textbf{Eventual Consistency}: Chấp nhận độ trễ đồng bộ không đáng kể
 \end{itemize}
 
-\subsection{Patient Service APIs}
+\section{Thiết kế API}
+
+\subsection{APIs Dịch vụ người dùng}
+\begin{itemize}
+    \item \texttt{POST /auth/login} - Đăng nhập
+    \item \texttt{POST /auth/register} - Đăng ký (chỉ Admin)
+    \item \texttt{GET /users} - Lấy danh sách người dùng
+    \item \texttt{GET /users/:id} - Lấy thông tin người dùng
+    \item \texttt{PUT /users/:id} - Cập nhật người dùng
+    \item \texttt{DELETE /users/:id} - Xóa người dùng
+\end{itemize}
+
+\subsection{APIs Dịch vụ bệnh nhân}
 \begin{itemize}
     \item \texttt{GET /patients} - Lấy danh sách bệnh nhân
     \item \texttt{POST /patients} - Tạo bệnh nhân mới
@@ -1263,7 +1483,7 @@ instructions & String & Hướng dẫn sử dụng \\
     \item \texttt{DELETE /patients/:id} - Xóa bệnh nhân
 \end{itemize}
 
-\subsection{Appointment Service APIs}
+\subsection{APIs Dịch vụ lịch hẹn}
 \begin{itemize}
     \item \texttt{GET /appointments} - Lấy danh sách lịch hẹn
     \item \texttt{POST /appointments} - Tạo lịch hẹn mới
@@ -1272,7 +1492,7 @@ instructions & String & Hướng dẫn sử dụng \\
     \item \texttt{DELETE /appointments/:id} - Hủy lịch hẹn
 \end{itemize}
 
-\subsection{Prescription Service APIs}
+\subsection{APIs Dịch vụ đơn thuốc}
 \begin{itemize}
     \item \texttt{GET /prescriptions} - Lấy danh sách đơn thuốc
     \item \texttt{POST /prescriptions} - Tạo đơn thuốc mới
@@ -1281,7 +1501,7 @@ instructions & String & Hướng dẫn sử dụng \\
     \item \texttt{POST /prescriptions/:id/items} - Thêm thuốc vào đơn
 \end{itemize}
 
-\subsection{Notification Service APIs}
+\subsection{APIs Dịch vụ thông báo}
 \begin{itemize}
     \item \texttt{POST /notifications/appointment-reminder/:id} - Gửi nhắc lịch hẹn
     \item \texttt{POST /notifications/prescription-ready/:id} - Thông báo đơn thuốc
@@ -1289,10 +1509,10 @@ instructions & String & Hướng dẫn sử dụng \\
     \item \texttt{GET /notifications/ready-prescriptions} - Đơn thuốc sẵn sàng
 \end{itemize}
 
-\section{Message Queue Design}
+\section{Thiết kế hàng đợi tin nhắn}
 
-\subsection{Event Types}
-\subsubsection{Appointment Events}
+\subsection{Các loại sự kiện}
+\subsubsection{Sự kiện lịch hẹn}
 \begin{itemize}
     \item \texttt{appointment.created} - Khi tạo lịch hẹn mới
     \item \texttt{appointment.confirmed} - Khi xác nhận lịch hẹn
@@ -1300,7 +1520,7 @@ instructions & String & Hướng dẫn sử dụng \\
     \item \texttt{appointment.cancelled} - Khi hủy lịch hẹn
 \end{itemize}
 
-\subsubsection{Prescription Events}
+\subsubsection{Sự kiện đơn thuốc}
 \begin{itemize}
     \item \texttt{prescription.created} - Khi tạo đơn thuốc mới
     \item \texttt{prescription.ready} - Khi đơn thuốc sẵn sàng
@@ -1308,7 +1528,7 @@ instructions & String & Hướng dẫn sử dụng \\
     \item \texttt{prescription.cancelled} - Khi hủy đơn thuốc
 \end{itemize}
 
-\subsection{Queue Configuration}
+\subsection{Cấu hình hàng đợi}
 \begin{itemize}
     \item Exchange Type: Topic
     \item Durable: true
@@ -1429,7 +1649,7 @@ Lễ tân quản lý tiếp đón bệnh nhân:
 
 \section{Công nghệ sử dụng}
 
-\subsection{Frontend Technologies}
+\subsection{Công nghệ Frontend}
 \begin{itemize}
     \item \textbf{PHP 8.0+}: Server-side scripting
     \item \textbf{HTML5}: Markup language
@@ -1439,7 +1659,7 @@ Lễ tân quản lý tiếp đón bệnh nhân:
     \item \textbf{Font Awesome}: Icon library
 \end{itemize}
 
-\subsection{Backend Technologies}
+\subsection{Công nghệ Backend}
 \begin{itemize}
     \item \textbf{Node.js 18+}: JavaScript runtime
     \item \textbf{Express.js}: Web application framework
@@ -1449,21 +1669,21 @@ Lễ tân quản lý tiếp đón bệnh nhân:
     \item \textbf{nodemailer}: Email sending library
 \end{itemize}
 
-\subsection{Database}
+\subsection{Cơ sở dữ liệu}
 \begin{itemize}
     \item \textbf{PostgreSQL 14}: Relational database
     \item \textbf{Prisma Migrate}: Database migration tool
     \item \textbf{Database per Service}: Microservices pattern
 \end{itemize}
 
-\subsection{Message Queue}
+\subsection{Hàng đợi tin nhắn}
 \begin{itemize}
     \item \textbf{RabbitMQ}: Message broker
     \item \textbf{amqplib}: Node.js AMQP client
     \item \textbf{Topic Exchange}: Message routing
 \end{itemize}
 
-\subsection{DevOps và Deployment}
+\subsection{DevOps và triển khai}
 \begin{itemize}
     \item \textbf{Docker}: Containerization
     \item \textbf{Docker Compose}: Multi-container orchestration
@@ -1471,7 +1691,7 @@ Lễ tân quản lý tiếp đón bệnh nhân:
     \item \textbf{Git}: Version control system
 \end{itemize}
 
-\section{Cấu trúc project}
+\section{Cấu trúc dự án}
 
 \begin{lstlisting}[language=bash]
 hospital-management/
@@ -1490,9 +1710,9 @@ hospital-management/
 `-- README.md               # Project documentation
 \end{lstlisting}
 
-\section{Docker Configuration}
+\section{Cấu hình Docker}
 
-\subsection{Service Containers}
+\subsection{Containers dịch vụ}
 Mỗi microservice được containerized riêng biệt:
 
 \begin{lstlisting}[language=text, caption=docker-compose.yml excerpt]
@@ -1520,7 +1740,7 @@ services:
       - rabbitmq
 \end{lstlisting}
 
-\subsection{Database Containers}
+\subsection{Containers cơ sở dữ liệu}
 Mỗi service có database riêng:
 
 % (Bảng phân quyền chi tiết được trình bày ở phần trên, không để trong lstlisting vì có ký tự Unicode)
@@ -2206,8 +2426,8 @@ Wager, Karen A. et al. \textit{Health Care Information Systems: A Practical Appr
 \chapter{Database Schema Scripts}
 % \lstinputlisting[language=sql, caption=User Service Schema]{services/user-service/prisma/schema.prisma} % Nếu chưa có file, comment lại
 
-\chapter{API Documentation}
-\section{User Service APIs}
+\chapter{Tài liệu API}
+\section{APIs Dịch vụ người dùng}
 \subsection{POST /auth/login}
 \begin{lstlisting}[language=text]
 {
@@ -2230,14 +2450,14 @@ Response:
 \end{lstlisting}
 
 \chapter{Hướng dẫn cài đặt}
-\section{Prerequisites}
+\section{Yêu cầu hệ thống}
 \begin{itemize}
     \item Docker và Docker Compose
     \item Git
     \item Gmail account với App Password
 \end{itemize}
 
-\section{Installation Steps}
+\section{Các bước cài đặt}
 \begin{enumerate}
     \item Clone repository
     \item Copy .env.example files
