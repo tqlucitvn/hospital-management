@@ -174,7 +174,7 @@ docker compose exec appointment-service npx prisma db push
 3. Tạo Appointment (kiểm tra không trùng lịch).
 4. Cập nhật / hủy Appointment (status).
 5. Tạo Prescription (kèm items).
-6. Cập nhật Prescription status (ISSUED → FILLED / CANCELED).
+6. Cập nhật Prescription status (ISSUED → PENDING → (DISPENSED | COMPLETED | CANCELED)).
 7. Notification-service nhận & log event:
    - appointment.created / statusUpdated / deleted
    - prescription.created / statusUpdated
@@ -216,7 +216,14 @@ Prescription-service (http://localhost:3005/api/prescriptions):
   items: [{ drugName,dosage,frequency,durationDays,instruction? }]
 - GET /?patientId=...
 - GET /:id
-- PATCH /:id/status { status } (ISSUED|FILLED|CANCELED)
+- PATCH /:id/status { status } (ISSUED | PENDING | DISPENSED | COMPLETED | CANCELED)
+  Quy tắc & phân quyền tóm tắt:
+  - ISSUED -> PENDING | DISPENSED | COMPLETED | CANCELED
+  - PENDING -> DISPENSED | COMPLETED | CANCELED
+  - DISPENSED -> COMPLETED | CANCELED
+  - Nurse chỉ được đặt DISPENSED từ ISSUED hoặc PENDING (ghi audit dispensedBy/dispensedAt)
+  - Doctor không được đặt DISPENSED (tách biệt thao tác phát thuốc); vẫn có thể chuyển sang PENDING / COMPLETED / CANCELED
+  - Admin không bị hạn chế
 
 ## 9. Event Model
 Exchanges:
@@ -259,7 +266,11 @@ curl -X POST http://localhost:3003/api/appointments \
 - Appointment: kiểm tra thời gian + overlap, và quy tắc chuyển trạng thái:
   - SCHEDULED -> CONFIRMED | CANCELED
   - CONFIRMED -> COMPLETED | CANCELED
-- Prescription: items bắt buộc, status transition ISSUED→FILLED/CANCELED.
+- Prescription: items bắt buộc. Status transitions:
+  - ISSUED -> PENDING | DISPENSED | COMPLETED | CANCELED
+  - PENDING -> DISPENSED | COMPLETED | CANCELED
+  - DISPENSED -> COMPLETED | CANCELED
+  Audit: Khi chuyển sang DISPENSED hệ thống ghi dispensedBy, dispensedAt.
 - User: unique email, (chưa áp dụng password/email format nâng cao).
 - Patient: phoneNumber @unique (theo schema nội bộ).
 - requestId & correlationId: Appointment + Prescription services.
@@ -329,11 +340,12 @@ docker compose up --build -d
 1. Đăng nhập (RECEPTIONIST / ADMIN / DOCTOR nếu cho phép)
 2. PATCH /api/appointments/:id/status { status:"CANCELED" }
 
-### Luồng 6: Cấp phát (FILLED) đơn thuốc
-1. Bác sĩ hoặc ADMIN đăng nhập
-2. PATCH /api/prescriptions/:id/status { status:"FILLED" }
-   - Đã FILLED gửi lại: 200 (idempotent)
-   - Đang CANCELED: 409 (invalid transition)
+### Luồng 6: Cấp phát đơn thuốc (Nurse / Admin)
+1. Nurse hoặc ADMIN đăng nhập (Doctor KHÔNG trực tiếp đặt trạng thái DISPENSED)
+2. (Tuỳ chọn) Nếu cần bước chuẩn bị: Doctor/ Admin có thể chuyển ISSUED -> PENDING
+3. Nurse/Admin chuyển ISSUED hoặc PENDING -> DISPENSED
+4. Hệ thống ghi audit: dispensedBy, dispensedAt
+5. (Tuỳ chọn) Sau khi bệnh nhân nhận thuốc và kết thúc quy trình: DISPENSED -> COMPLETED (Admin / Doctor / Nurse nếu cần chính sách mở rộng; hiện tại Admin/Doctor cho phép, Nurse chỉ thao tác DISPENSED)
 
 ### Luồng 7: Huỷ đơn thuốc
 1. Bác sĩ hoặc ADMIN đăng nhập
@@ -383,7 +395,7 @@ docker compose up --build -d
 
 ### Chuyển trạng thái
 - Appointment: SCHEDULED -> CONFIRMED | CANCELED; CONFIRMED -> COMPLETED | CANCELED
-- Prescription: ISSUED -> FILLED | CANCELED
+- Prescription: ISSUED -> PENDING | DISPENSED | COMPLETED | CANCELED; PENDING -> DISPENSED | COMPLETED | CANCELED; DISPENSED -> COMPLETED | CANCELED
 
 ### Gợi ý cache phía FE
 - Cache danh sách bác sĩ (users role=DOCTOR)
@@ -435,7 +447,7 @@ sequenceDiagram
   NS->>NS: Log
 ```
 
-### 17.3 Update Prescription Status (ISSUED -> FILLED)
+### 17.3 Update Prescription Status (ISSUED -> DISPENSED)
 ```mermaid
 sequenceDiagram
   participant FE
@@ -443,9 +455,9 @@ sequenceDiagram
   participant MQ as RabbitMQ
   participant NS as Notification-Service
 
-  FE->>PS: PATCH /prescriptions/:id/status {FILLED}
+  FE->>PS: PATCH /prescriptions/:id/status {DISPENSED}
   PS->>PS: Validate transition
-  PS-->>FE: 200 {status:FILLED}
+  PS-->>FE: 200 {status:DISPENSED, dispensedBy, dispensedAt}
   PS->>MQ: prescription.statusUpdated
   MQ-->>NS: event
   NS->>NS: Log

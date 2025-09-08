@@ -38,14 +38,11 @@ function getPatientName($patientId, $patients) {
 }
 
 function getDoctorName($doctorId, $users) {
-    // Debug: Log the search
-    error_log("DEBUG getDoctorName - Looking for doctorId: " . $doctorId . ", Users count: " . count($users));
     
     foreach ($users as $user) {
         if (is_array($user) && isset($user['id']) && $user['id'] == $doctorId) {
             // Check multiple possible field names for doctor name
             if (!empty($user['fullName'])) {
-                error_log("DEBUG getDoctorName - Found doctor: " . $user['fullName']);
                 return $user['fullName'];
             } elseif (!empty($user['name'])) {
                 return $user['name'];
@@ -62,7 +59,6 @@ function getDoctorName($doctorId, $users) {
             return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
         }
     }
-    error_log("DEBUG getDoctorName - Doctor not found, returning unknown_doctor");
     return __('unknown_doctor');
 }
 
@@ -234,14 +230,11 @@ try {
             if (!$found) {
                 // Add current user to users array, fetch latest data from API
                 $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
-                error_log("DEBUG Add/Edit form - /me API response: " . json_encode($currentUserResponse));
                 if ($currentUserResponse['status_code'] === 200 && isset($currentUserResponse['data'])) {
                     $users[] = $currentUserResponse['data'];
-                    error_log("DEBUG Add/Edit form - Added real user data: " . json_encode($currentUserResponse['data']));
                 } else {
                     // Fallback to session data
                     $users[] = $user;
-                    error_log("DEBUG Add/Edit form - Fallback to session data: " . json_encode($user));
                 }
             }
         }
@@ -281,11 +274,6 @@ try {
                 }
             }
             
-            // Debug: Log users array for doctor
-            error_log("DEBUG Doctor view - Users count: " . count($users) . ", Current user ID: " . $user['id']);
-            error_log("DEBUG Doctor view - Users: " . json_encode(array_map(function($u) { 
-                return ['id' => $u['id'] ?? 'missing', 'fullName' => $u['fullName'] ?? 'missing', 'email' => $u['email'] ?? 'missing']; 
-            }, $users)));
         }
     }
     

@@ -91,7 +91,6 @@ function formatLocalizedDayName($dateString) {
 function getDoctorName($doctorId, $users)
 {
     if (!is_array($users)) {
-        error_log("DEBUG getDoctorName - Users is not an array: " . gettype($users));
         return __('unknown_doctor');
     }
     
@@ -125,8 +124,6 @@ function getDoctorName($doctorId, $users)
             return sprintf(__('doctor_fallback_id'), substr($doctorId, 0, 8));
         }
     }
-    
-    error_log("DEBUG getDoctorName - User not found for doctorId: " . $doctorId . ", available user IDs: " . json_encode(array_map(function($u) { return $u['id'] ?? 'no-id'; }, $users)));
     return __('unknown_doctor');
 }
 
@@ -317,14 +314,27 @@ try {
                 $pagination = paginate($page, $totalPages, $baseUrl);
             }
             
-            // Load current user info for doctor name (more efficient than loading all doctors)
-            $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
-            if ($currentUserResponse['status_code'] === 200) {
-                $currentUser = $currentUserResponse['data'];
-                // For list view, we only need current user since doctors only see their own prescriptions
-                $users = [$currentUser]; // Create array with single user for consistency
+            // Load doctor user list for mapping doctor names:
+            // - If role is DOCTOR: only need current user
+            // - If role is NURSE or ADMIN: need full doctor list (or all users) to resolve names
+            if (hasRole('DOCTOR')) {
+                $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+                if ($currentUserResponse['status_code'] === 200) {
+                    $currentUser = $currentUserResponse['data'];
+                    $users = [$currentUser];
+                } else {
+                    $users = [];
+                }
             } else {
-                $users = [];
+                // Nurse / Admin
+                $doctorsResponse = makeApiCall(USER_SERVICE_URL . '/doctors', 'GET', null, $token);
+                if ($doctorsResponse['status_code'] === 200 && is_array($doctorsResponse['data'])) {
+                    $users = $doctorsResponse['data'];
+                } else {
+                    // Fallback: fetch all users
+                    $allUsersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+                    $users = ($allUsersResponse['status_code'] === 200 && is_array($allUsersResponse['data'])) ? $allUsersResponse['data'] : [];
+                }
             }
             
             // Load patients for patient names in list view
@@ -423,9 +433,21 @@ try {
                 (is_array($patientsResponse['data']) ? $patientsResponse['data'] : []);
         }
 
-        $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
-        if ($usersResponse['status_code'] === 200) {
-            $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
+        if (hasRole('DOCTOR')) {
+            $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
+            if ($currentUserResponse['status_code'] === 200) {
+                $users = [$currentUserResponse['data']];
+            }
+        } else {
+            $doctorsResponse = makeApiCall(USER_SERVICE_URL . '/doctors', 'GET', null, $token);
+            if ($doctorsResponse['status_code'] === 200 && is_array($doctorsResponse['data'])) {
+                $users = $doctorsResponse['data'];
+            } else {
+                $usersResponse = makeApiCall(USER_SERVICE_URL, 'GET', null, $token);
+                if ($usersResponse['status_code'] === 200) {
+                    $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
+                }
+            }
         }
     }
 

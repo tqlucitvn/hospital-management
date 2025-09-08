@@ -242,13 +242,14 @@ exports.update = async (req, res, next) => {
             return res.status(403).json({ error: 'Doctors can only edit their own appointments' });
         }
 
-        // Check overlap for same doctor (excluding current appointment)
+        // Check overlap for same doctor (excluding current appointment) only against active statuses
         const overlap = await prisma.appointment.findFirst({
             where: {
                 doctorId,
                 startTime: { lt: end },
                 endTime: { gt: start },
-                id: { not: id }
+                id: { not: id },
+                status: { in: ['SCHEDULED', 'CONFIRMED'] }
             }
         });
 
