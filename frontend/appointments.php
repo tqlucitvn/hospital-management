@@ -550,7 +550,7 @@ ob_start();
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="patientId" class="form-label"><?php echo __('patient'); ?> *</label>
-                            <select class="form-select" id="patientId" name="patientId" required>
+                            <select class="form-select js-searchable-select" data-search-placeholder="<?php echo __('search_patients'); ?>" id="patientId" name="patientId" required>
                                 <option value=""><?php echo __('select_patient'); ?></option>
                                 <?php 
                                 $preselectPatientId = $_GET['patient_id'] ?? ($action === 'edit' ? $appointment['patientId'] : '');
@@ -574,7 +574,7 @@ ob_start();
                                                     (($action === 'edit' && $appointment['doctorId'] === $user['id']) || 
                                                      ($action === 'add')));
                             ?>
-                            <select class="form-select" id="doctorId" name="doctorId" required 
+                            <select class="form-select js-searchable-select" data-search-placeholder="<?php echo __('search_doctors'); ?>" id="doctorId" name="doctorId" required 
                                     <?php echo $isDoctorFieldDisabled ? 'disabled' : ''; ?>>
                                 <option value=""><?php echo __('select_doctor'); ?></option>
                                 <?php 
@@ -816,6 +816,74 @@ function confirmDelete(appointmentId, patientName) {
 
 // Auto-focus first input
 document.addEventListener('DOMContentLoaded', function() {
+    // Reuse lightweight searchable select (same approach as prescriptions)
+    function initSearchableSelect(selectEl) {
+        if (selectEl.disabled) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'position-relative mb-2';
+        selectEl.parentNode.insertBefore(wrapper, selectEl);
+        wrapper.appendChild(selectEl);
+        selectEl.style.display = 'none';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control mb-1';
+        input.placeholder = selectEl.getAttribute('data-search-placeholder') || 'Search...';
+        wrapper.insertBefore(input, selectEl);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'searchable-select-dropdown border rounded bg-white shadow-sm position-absolute w-100';
+        dropdown.style.zIndex = 1000;
+        dropdown.style.maxHeight = '220px';
+        dropdown.style.overflowY = 'auto';
+        dropdown.style.display = 'none';
+        wrapper.appendChild(dropdown);
+
+        const options = Array.from(selectEl.options)
+            .filter(o => o.value)
+            .map(o => ({ value: o.value, label: o.textContent.trim() }));
+
+        function render(list) {
+            dropdown.innerHTML = '';
+            if (!list.length) {
+                const empty = document.createElement('div');
+                empty.className = 'px-2 py-1 text-muted small';
+                empty.textContent = '<?php echo addslashes(__('no_results')); ?>';
+                dropdown.appendChild(empty);
+                return;
+            }
+            list.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'px-2 py-1 searchable-select-item';
+                row.style.cursor = 'pointer';
+                row.textContent = item.label;
+                row.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    selectEl.value = item.value;
+                    input.value = item.label;
+                    dropdown.style.display = 'none';
+                });
+                dropdown.appendChild(row);
+            });
+        }
+
+        function filter() {
+            const q = input.value.trim().toLowerCase();
+            const list = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options.slice(0, 50);
+            render(list.slice(0, 100));
+        }
+
+        input.addEventListener('focus', () => { dropdown.style.display = 'block'; filter(); });
+        input.addEventListener('input', filter);
+        input.addEventListener('blur', () => { setTimeout(() => { dropdown.style.display = 'none'; }, 120); });
+
+        if (selectEl.value) {
+            const found = options.find(o => o.value === selectEl.value);
+            if (found) input.value = found.label;
+        }
+    }
+
+    document.querySelectorAll('select.js-searchable-select').forEach(initSearchableSelect);
     const firstInput = document.querySelector('form input:not([type="hidden"]), form select');
     if (firstInput) {
         firstInput.focus();

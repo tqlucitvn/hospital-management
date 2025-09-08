@@ -370,8 +370,8 @@ try {
 
     // Get patients, users, and appointments for dropdowns (additional data for add/edit)
     if ($action === 'add' || $action === 'edit') {
-        // Patients and users might already be loaded in view/edit mode above
-        if (!isset($patients)) {
+        // Always ensure patients loaded (previous logic failed because $patients pre-declared as [])
+        if (empty($patients)) {
             $patientsResponse = makeApiCall(PATIENT_SERVICE_URL, 'GET', null, $token);
             if ($patientsResponse['status_code'] === 200) {
                 $patients = isset($patientsResponse['data']['patients']) ?
@@ -380,22 +380,18 @@ try {
             }
         }
 
-        if (!isset($users)) {
+        if (empty($users)) {
             // For add/edit mode, load users based on role
             if (hasRole('ADMIN')) {
-                // Admin can see all doctors
                 $usersResponse = makeApiCall(USER_SERVICE_URL . '/doctors', 'GET', null, $token);
                 if ($usersResponse['status_code'] === 200) {
                     $users = is_array($usersResponse['data']) ? $usersResponse['data'] : [];
                 }
             } else {
-                // Non-admin users (doctors) only see themselves
                 $currentUserResponse = makeApiCall(USER_SERVICE_URL . '/me', 'GET', null, $token);
                 if ($currentUserResponse['status_code'] === 200) {
                     $currentUser = $currentUserResponse['data'];
                     $users = [$currentUser];
-                } else {
-                    $users = [];
                 }
             }
         }
@@ -690,7 +686,7 @@ ob_start();
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="patientId" class="form-label"><?php echo __('patient'); ?> *</label>
-                                <select class="form-select" id="patientId" name="patientId" required <?php echo ($preselectedAppointment || $action === 'edit') ? 'disabled' : ''; ?>>
+                                <select class="form-select js-searchable-select" data-search-placeholder="<?php echo __('search_patients'); ?>" id="patientId" name="patientId" required <?php echo ($preselectedAppointment || $action === 'edit') ? 'disabled' : ''; ?>>
                                     <option value=""><?php echo __('select_patient'); ?></option>
                                     <?php 
                                     $selectedPatientId = $preselectedAppointment ? $preselectedAppointment['patientId'] : 
@@ -710,7 +706,7 @@ ob_start();
 
                             <div class="col-md-6 mb-3">
                                 <label for="doctorId" class="form-label"><?php echo __('doctor'); ?> *</label>
-                                <select class="form-select" id="doctorId" name="doctorId" required <?php echo ($preselectedAppointment && $user['role'] === 'DOCTOR') || $action === 'edit' ? 'disabled' : ''; ?>>
+                                <select class="form-select js-searchable-select" data-search-placeholder="<?php echo __('search_doctors'); ?>" id="doctorId" name="doctorId" required <?php echo ($preselectedAppointment && $user['role'] === 'DOCTOR') || $action === 'edit' ? 'disabled' : ''; ?>>
                                     <option value=""><?php echo __('select_doctor'); ?></option>
                                     <?php 
                                     $selectedDoctorId = '';
@@ -1069,6 +1065,81 @@ ob_start();
 <script>
     // Status modal functionality
     document.addEventListener('DOMContentLoaded', function () {
+        // Lightweight searchable select (no external lib). Works for moderate option counts.
+        function initSearchableSelect(selectEl) {
+            if (selectEl.disabled) return; // skip if disabled
+            const wrapper = document.createElement('div');
+            wrapper.className = 'position-relative mb-2';
+            selectEl.parentNode.insertBefore(wrapper, selectEl);
+            wrapper.appendChild(selectEl);
+            selectEl.style.display = 'none';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control mb-1';
+            input.placeholder = selectEl.getAttribute('data-search-placeholder') || 'Search...';
+            wrapper.insertBefore(input, selectEl);
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'searchable-select-dropdown border rounded bg-white shadow-sm position-absolute w-100';
+            dropdown.style.zIndex = 1000;
+            dropdown.style.maxHeight = '220px';
+            dropdown.style.overflowY = 'auto';
+            dropdown.style.display = 'none';
+            wrapper.appendChild(dropdown);
+
+            const options = Array.from(selectEl.options)
+                .filter(o => o.value) // skip placeholder
+                .map(o => ({ value: o.value, label: o.textContent.trim() }));
+
+            function render(list) {
+                dropdown.innerHTML = '';
+                if (!list.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'px-2 py-1 text-muted small';
+                    empty.textContent = '<?php echo addslashes(__('no_results')); ?>';
+                    dropdown.appendChild(empty);
+                    return;
+                }
+                list.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'px-2 py-1 searchable-select-item';
+                    row.style.cursor = 'pointer';
+                    row.textContent = item.label;
+                    row.addEventListener('mousedown', e => { // mousedown to avoid blur race
+                        e.preventDefault();
+                        selectEl.value = item.value;
+                        input.value = item.label;
+                        dropdown.style.display = 'none';
+                    });
+                    dropdown.appendChild(row);
+                });
+            }
+
+            function filter() {
+                const q = input.value.trim().toLowerCase();
+                const list = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options.slice(0, 50);
+                render(list.slice(0, 100));
+            }
+
+            input.addEventListener('focus', () => {
+                dropdown.style.display = 'block';
+                filter();
+            });
+            input.addEventListener('input', filter);
+            input.addEventListener('blur', () => {
+                setTimeout(() => { dropdown.style.display = 'none'; }, 120);
+            });
+
+            // Pre-fill if an option was selected
+            if (selectEl.value) {
+                const found = options.find(o => o.value === selectEl.value);
+                if (found) input.value = found.label;
+            }
+        }
+
+        document.querySelectorAll('select.js-searchable-select').forEach(initSearchableSelect);
+
         const statusModal = document.getElementById('statusModal');
         if (statusModal) {
             statusModal.addEventListener('show.bs.modal', function (event) {
