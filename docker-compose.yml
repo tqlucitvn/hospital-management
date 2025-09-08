@@ -96,6 +96,8 @@ services:
       - PORT=3003
       - JWT_SECRET=your-super-secret-key-for-jwt
       - RABBITMQ_URL=amqp://rabbitmq:5672
+      - MONGO_URL=mongodb://root:secret@mongo:27017/?authSource=admin
+      - MONGO_DB=hms_logs
     depends_on:
       - appointment-db
       - rabbitmq
@@ -107,6 +109,8 @@ services:
     restart: always
     environment:
       - RABBITMQ_URL=amqp://rabbitmq:5672
+      - MONGO_URL=mongodb://root:secret@mongo:27017/?authSource=admin
+      - MONGO_DB=hms_logs
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -140,8 +144,37 @@ services:
       - prescription-db
       - rabbitmq
 
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    restart: always
+    ports:
+      - '27017:27017'
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=secret
+    volumes:
+      - mongo_data:/data/db
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    restart: always
+    ports:
+      - '8081:8081'
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: "root"
+      ME_CONFIG_MONGODB_ADMINPASSWORD: "secret"
+      ME_CONFIG_MONGODB_SERVER: "mongo"
+      # make the mongo-express UI basic auth use the same admin credentials
+      ME_CONFIG_BASICAUTH_USERNAME: "root"
+      ME_CONFIG_BASICAUTH_PASSWORD: "secret"
+    depends_on:
+      - mongo
+
 volumes:
   user_db_data:
   patient_db_data:
   appointment_db_data:
   prescription_db_data:
+  mongo_data:
