@@ -22,6 +22,8 @@ model Prescription {
     appointmentId String?
     note          String?
     status        PrescriptionStatus @default(ISSUED)
+    dispensedBy   String?
+    dispensedAt   DateTime?
     createdAt     DateTime           @default(now())
     updatedAt     DateTime           @updatedAt
     items         PrescriptionItem[]

@@ -285,7 +285,7 @@ exports.updateStatus = async (req, res) => {
 
         const current = await prisma.prescription.findUnique({
             where: { id },
-            select: { status: true }
+            select: { status: true, dispensedBy: true, dispensedAt: true }
         });
         if (!current) return res.status(404).json({ error: 'Not found' });
 
@@ -300,10 +300,35 @@ exports.updateStatus = async (req, res) => {
             });
         }
 
+        // Role-based restriction logic:
+        // NURSE: may only transition to DISPENSED from ISSUED or PENDING
+        // DOCTOR: may perform any transition except cannot set DISPENSED (reserved for nurse/admin) unless they are also ADMIN
+        // ADMIN: full access
+        if (req.user) {
+            const role = req.user.role;
+            if (role === 'NURSE') {
+                const allowedForNurse = ['DISPENSED'];
+                if (!allowedForNurse.includes(status) || !['ISSUED', 'PENDING'].includes(current.status)) {
+                    return res.status(403).json({ error: 'Nurse can only mark prescription as DISPENSED from ISSUED or PENDING' });
+                }
+            } else if (role === 'DOCTOR') {
+                // Prevent doctor from setting DISPENSED (operational separation)
+                if (status === 'DISPENSED') {
+                    return res.status(403).json({ error: 'Doctor cannot mark as DISPENSED (pharmacy/nurse action)' });
+                }
+            }
+        }
+
+        const dataUpdate = { status };
+        if (status === 'DISPENSED') {
+            dataUpdate.dispensedBy = req.user ? req.user.id : null;
+            dataUpdate.dispensedAt = new Date();
+        }
+
         const upd = await prisma.prescription.update({
             where: { id },
-            data: { status },
-            select: { id: true, status: true, updatedAt: true }
+            data: dataUpdate,
+            select: { id: true, status: true, updatedAt: true, dispensedBy: true, dispensedAt: true }
         });
 
         publishEvent(EXCHANGE, 'prescription.statusUpdated', {

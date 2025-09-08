@@ -614,10 +614,23 @@ ob_start();
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
                                             <?php endif; ?>
-                                            <?php if (hasAnyRole(['ADMIN', 'DOCTOR']) && ($pres['status'] ?? '') !== 'DISPENSED'): ?>
-                                                <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal"
-                                                    data-bs-target="#statusModal" data-prescription-id="<?php echo $pres['id']; ?>"
-                                                    data-current-status="<?php echo $pres['status'] ?? ''; ?>" title="<?php echo __('update_status'); ?>">
+                                            <?php 
+                                            // Show status change button:
+                                            // ADMIN: any transition except already COMPLETED/CANCELED
+                                            // DOCTOR: can change while not DISPENSED/COMPLETED and target not DISPENSED
+                                            // NURSE: only if current status ISSUED or PENDING (to mark DISPENSED)
+                                            $currentStatus = $pres['status'] ?? ''; 
+                                            $showStatusBtn = false; 
+                                            if (hasRole('ADMIN') && !in_array($currentStatus, ['COMPLETED','CANCELED'])) {
+                                                $showStatusBtn = true; 
+                                            } elseif (hasRole('DOCTOR') && !in_array($currentStatus, ['DISPENSED','COMPLETED','CANCELED'])) {
+                                                $showStatusBtn = true; 
+                                            } elseif (hasRole('NURSE') && in_array($currentStatus, ['ISSUED','PENDING'])) {
+                                                $showStatusBtn = true; 
+                                            }
+                                            if ($showStatusBtn): ?>
+                                                <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#statusModal" 
+                                                    data-prescription-id="<?php echo $pres['id']; ?>" data-current-status="<?php echo $currentStatus; ?>" title="<?php echo __('update_status'); ?>">
                                                     <i class="bi bi-arrow-repeat"></i>
                                                 </button>
                                             <?php endif; ?>
@@ -920,6 +933,16 @@ ob_start();
                             <small class="text-muted"><?php echo formatLocalizedDayName($prescription['createdAt']); ?></small>
                         </div>
 
+                        <?php if (!empty($prescription['dispensedAt'])): ?>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted"><?php echo __('dispensed'); ?> <?php echo __('by') ?? 'by'; ?></label>
+                            <p class="fw-bold">
+                                <?php echo htmlspecialchars($prescription['dispensedBy'] ?? ''); ?>
+                                <small class="text-muted d-block mt-1"><?php echo formatLocalizedDate($prescription['dispensedAt']); ?> (<?php echo formatLocalizedDayName($prescription['dispensedAt']); ?>)</small>
+                            </p>
+                        </div>
+                        <?php endif; ?>
+
                         <?php if ($prescription['appointmentId'] ?? false): ?>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label text-muted"><?php echo __('related_appointment'); ?></label>
@@ -977,10 +1000,15 @@ ob_start();
 
                     <!-- Action Buttons -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
-                        <?php if (hasAnyRole(['ADMIN', 'DOCTOR']) && ($prescription['status'] ?? '') !== 'DISPENSED'): ?>
+                        <?php 
+                        $viewCurrent = $prescription['status'] ?? ''; 
+                        $allowStatusView = false; 
+                        if (hasRole('ADMIN') && !in_array($viewCurrent, ['COMPLETED','CANCELED'])) { $allowStatusView = true; }
+                        elseif (hasRole('DOCTOR') && !in_array($viewCurrent, ['DISPENSED','COMPLETED','CANCELED'])) { $allowStatusView = true; }
+                        elseif (hasRole('NURSE') && in_array($viewCurrent, ['ISSUED','PENDING'])) { $allowStatusView = true; }
+                        if ($allowStatusView): ?>
                             <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#statusModal"
-                                data-prescription-id="<?php echo $prescription['id']; ?>"
-                                data-current-status="<?php echo $prescription['status'] ?? ''; ?>">
+                                data-prescription-id="<?php echo $prescription['id']; ?>" data-current-status="<?php echo $viewCurrent; ?>">
                                 <i class="bi bi-arrow-repeat"></i> <?php echo __('update_status'); ?>
                             </button>
                         <?php endif; ?>
@@ -1025,11 +1053,20 @@ ob_start();
                     <div class="mb-3">
                         <label for="modalStatus" class="form-label"><?php echo __('new_status'); ?></label>
                         <select class="form-select" id="modalStatus" name="status" required>
-                            <option value="ISSUED"><?php echo __('issued'); ?></option>
-                            <option value="PENDING"><?php echo __('pending'); ?></option>
-                            <option value="DISPENSED"><?php echo __('dispensed'); ?></option>
-                            <option value="COMPLETED"><?php echo __('completed'); ?></option>
-                            <option value="CANCELED"><?php echo __('canceled'); ?></option>
+                            <?php if (hasRole('ADMIN')): ?>
+                                <option value="ISSUED"><?php echo __('issued'); ?></option>
+                                <option value="PENDING"><?php echo __('pending'); ?></option>
+                                <option value="DISPENSED"><?php echo __('dispensed'); ?></option>
+                                <option value="COMPLETED"><?php echo __('completed'); ?></option>
+                                <option value="CANCELED"><?php echo __('canceled'); ?></option>
+                            <?php elseif (hasRole('DOCTOR')): ?>
+                                <option value="ISSUED"><?php echo __('issued'); ?></option>
+                                <option value="PENDING"><?php echo __('pending'); ?></option>
+                                <option value="COMPLETED"><?php echo __('completed'); ?></option>
+                                <option value="CANCELED"><?php echo __('canceled'); ?></option>
+                            <?php elseif (hasRole('NURSE')): ?>
+                                <option value="DISPENSED"><?php echo __('dispensed'); ?></option>
+                            <?php endif; ?>
                         </select>
                     </div>
                 </div>
