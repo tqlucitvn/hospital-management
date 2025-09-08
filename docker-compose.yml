@@ -111,9 +111,18 @@ services:
       - RABBITMQ_URL=amqp://rabbitmq:5672
       - MONGO_URL=mongodb://root:secret@mongo:27017/?authSource=admin
       - MONGO_DB=hms_logs
+      # Email demo (uses Mailhog SMTP)
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_SECURE=false
+      - SMTP_FROM="Hospital HMS <noreply@hms.local>"
+      - NOTIFY_DEMO_TO=demo@hms.local
+      - ENABLE_EMAIL=true
     depends_on:
       rabbitmq:
         condition: service_healthy
+      mailhog:
+        condition: service_started
 
   prescription-db:
     image: postgres:14-alpine
@@ -171,6 +180,14 @@ services:
       ME_CONFIG_BASICAUTH_PASSWORD: "secret"
     depends_on:
       - mongo
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mailhog
+    restart: always
+    ports:
+      - '8025:8025' # Web UI
+      - '1025:1025' # SMTP
 
 volumes:
   user_db_data:

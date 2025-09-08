@@ -1,715 +1,455 @@
-# Hospital Management System - Backend
+# Hospital Management Backend (v0)
 
-## 📋 Tổng quan
+## 1. Tổng quan
+Hệ thống microservices quản lý:
+- User & phân quyền (ADMIN, DOCTOR, NURSE, RECEPTIONIST)
+- Patient
+- Appointment (chống trùng lịch bác sĩ)
+- Prescription (đơn thuốc + items, quy tắc chuyển trạng thái)
+- Notification service (consume event từ RabbitMQ)
 
-Hệ thống quản lý bệnh viện hoàn chỉnh được xây dựng với kiến trúc microservices, tập trung vào bảo mật và quy trình thực tế trong ngành y tế. Hệ thống hỗ trợ quản lý người dùng, bệnh nhân, lịch hẹn, đơn thuốc và thông báo tự động.
+Hiện đang ở bản phát triển (prototype) ưu tiên tính năng core, chưa hardening bảo mật / migrate chuẩn.
 
-### ✨ Tính năng chính
-- **Quản lý người dùng**: 4 vai trò (Admin, Doctor, Nurse, Receptionist) với phân quyền rõ ràng
-- **Quản lý bệnh nhân**: Đăng ký, tìm kiếm, cập nhật hồ sơ với role-based access
-- **Quản lý lịch hẹn**: Đặt lịch với conflict detection, workflow status management
-- **Quản lý đơn thuốc**: Kê đơn điện tử với workflow hoàn chỉnh (Pending → Ready → Dispensed)
-- **Hệ thống thông báo**: Email tự động với RabbitMQ message queue
-- **Bảo mật**: JWT authentication, role-based permissions, data filtering theo user
+## 2. Kiến trúc
+Services (tách code + DB riêng):
+- user-service
+- patient-service
+- appointment-service
+- prescription-service
+- notification-service (consumer)
+Infra:
+- PostgreSQL (mỗi service 1 DB)
+- RabbitMQ (topic exchanges)
+Giao tiếp:
+- REST (HTTP JSON)
+- Event async (RabbitMQ topic): appointment.events, prescription.events
 
-### 🏥 Healthcare Workflow
-Hệ thống được thiết kế theo quy trình thực tế:
-1. **Patient Registration** → **Appointment Booking** → **Doctor Consultation** → **Prescription** → **Pharmacy Dispensing**
-2. **Security**: Bác sĩ chỉ có thể xem/quản lý bệnh nhân và đơn thuốc của chính họ
-3. **Audit Trail**: Tất cả thao tác được ghi log với timestamp và user tracking
+## 3. Công nghệ
+Node.js 18, Express, Prisma (db push tạm thời), JWT, RabbitMQ (amqplib), Docker Compose.
 
-## 🏗️ Kiến trúc hệ thống
+## 4. Chạy nhanh (Windows PowerShell / Git Bash)
+```bash
+# Clone
+git clone <repo>
+cd hospital-managemnent/backend
 
-### Microservices Architecture
+# Build & chạy
+docker compose up --build -d
+
+# Xem logs 1 service
+docker compose logs -f appointment-service
 ```
-Frontend (PHP + Bootstrap)
-    ↓
-API Gateway / Load Balancer
-    ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    Microservices                            │
-├─────────────────────────────────────────────────────────────┤
-│ • user-service (3001)     - Authentication & Authorization │
-│ • patient-service (3002)  - Patient Management             │
-│ • appointment-service (3003) - Appointment Scheduling      │
-│ • prescription-service (3004) - Prescription Management    │
-│ • notification-service (3005) - Email Notifications        │
-└─────────────────────────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    Infrastructure                           │
-├─────────────────────────────────────────────────────────────┤
-│ • PostgreSQL (per service) - Data persistence              │
-│ • RabbitMQ - Message queue & event-driven communication    │
-│ • Docker & Docker Compose - Containerization               │
-└─────────────────────────────────────────────────────────────┘
+RabbitMQ UI: http://localhost:15672 (guest/guest)
+
+## 5. Ports & Services
+- user-service: 3002
+- patient-service: 3001
+- appointment-service: 3003
+- prescription-service: 3005
+- notification-service: (no public API, chỉ log)
+- mongo (MongoDB for logs): 27017 (internal) / mapped 27017
+- mongo-express (UI xem log): 8081
+- mailhog (SMTP demo + UI email): SMTP 1025 / Web 8025
+- RabbitMQ: 5672 / mgmt 15672
+- PostgreSQL DBs: 5433..5436 (host mapped)
+
+## 6. Env tối thiểu (mỗi service .env)
 ```
-
-### Service Communication
-- **Synchronous**: REST APIs cho real-time operations
-- **Asynchronous**: RabbitMQ message queue cho notifications và background tasks
-- **Security**: JWT-based authentication với role-based authorization
-- **Data Isolation**: Mỗi service có database riêng biệt
-
-## 🛠️ Tech Stack
-
-### Backend
-- **Runtime**: Node.js 18+ với Express.js framework
-- **Database**: PostgreSQL với Prisma ORM
-- **Authentication**: JWT (JSON Web Tokens) với bcrypt password hashing
-- **Message Queue**: RabbitMQ cho async processing
-- **Testing**: Jest với coverage >80% (Unit, Integration, E2E tests)
-- **Containerization**: Docker & Docker Compose
-
-### Frontend
-- **Framework**: PHP với Bootstrap 5 cho responsive UI
-- **Languages**: Multi-language support (Vietnamese/English)
-- **Security**: Role-based UI components, CSRF protection
-
-### DevOps & Deployment
-- **Containerization**: Docker với production-ready configurations
-- **Environment Management**: Environment-specific configurations
-- **Monitoring**: Health check endpoints, structured logging
-- **Scalability**: Horizontal scaling ready với load balancer support
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker Desktop
-- Git
-- Node.js 18+ (for local development)
-
-### Installation & Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/tqlucitvn/hospital-management.git
-   cd hospital-management/backend
-   ```
-
-2. **Start the application**
-   ```bash
-   # Build and start all services
-   docker-compose up --build -d
-   
-   # Verify all services are running
-   docker-compose ps
-   ```
-
-3. **Access the application**
-   - Frontend: http://localhost:3000
-   - RabbitMQ Management: http://localhost:15672 (guest/guest)
-   - Individual service health checks: http://localhost:300X/health
-
-4. **Load initial data (optional)**
-   ```bash
-   # Seed database with sample data
-   npm run seed-demo-data
-   ```
-
-### Default Login Credentials
-- **Admin**: admin@hospital.com / admin123
-- **Doctor**: doctor@hospital.com / doctor123
-- **Nurse**: nurse@hospital.com / nurse123
-- **Receptionist**: receptionist@hospital.com / receptionist123
-
-## 🔌 Services & Ports
-
-| Service | Port | Description | Health Check |
-|---------|------|-------------|-------------|
-| Frontend | 3000 | PHP Web Interface | http://localhost:3000 |
-| User Service | 3001 | Authentication & User Management | http://localhost:3001/health |
-| Patient Service | 3002 | Patient Records Management | http://localhost:3002/health |
-| Appointment Service | 3003 | Appointment Scheduling | http://localhost:3003/health |
-| Prescription Service | 3004 | Prescription Management | http://localhost:3004/health |
-| Notification Service | 3005 | Email Notifications | http://localhost:3005/health |
-| PostgreSQL | 5432 | Database (internal) | - |
-| RabbitMQ | 5672 | Message Queue | http://localhost:15672 |
-| RabbitMQ Management | 15672 | Queue Management UI | http://localhost:15672 |
-
-### Database Ports (for external access)
-- User DB: localhost:5433
-- Patient DB: localhost:5434  
-- Appointment DB: localhost:5435
-- Prescription DB: localhost:5436
-- Notification DB: localhost:5437
-
-## ⚙️ Configuration
-
-### Environment Variables
-Each service requires a `.env` file with the following configuration:
-
-```env
-# Database Configuration
 DATABASE_URL=postgresql://admin:password@<service-db>:5432/<db_name>
-
-# Authentication
-JWT_SECRET=your-super-secret-key-for-jwt-tokens
-
-# Message Queue
+JWT_SECRET=your-super-secret-key-for-jwt
 RABBITMQ_URL=amqp://rabbitmq:5672
-
-# Service Configuration
 PORT=<service_port>
-NODE_ENV=development
-
-# Email Configuration (Notification Service)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
+# Logging (áp dụng cho services có ghi log)
+MONGO_URL=mongodb://root:secret@mongo:27017/?authSource=admin
+MONGO_DB=hms_logs
+# Email demo (notification-service)
+SMTP_HOST=mailhog
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_FROM="Hospital HMS <noreply@hms.local>"
+ENABLE_EMAIL=true
+NOTIFY_DEMO_TO=demo@hms.local
 ```
 
-### Database Schema Updates
-When schema changes are made, update the database:
+## 6.1 Đồng bộ DB sau khi thay đổi schema (Appointment thêm CONFIRMED)
+## 6.2 Logging (MongoDB)
+Các service sau đã được tích hợp ghi log vào MongoDB:
+- appointment-service: ghi access log HTTP (collection `access_logs`)
+- notification-service: ghi sự kiện nhận từ RabbitMQ (collection `notification_events`)
+
+Docker Compose bổ sung services:
+```
+mongo          (MongoDB 6.0, auth root / secret)
+mongo-express  (UI quản lý tại http://localhost:8081 – basic auth root / secret)
+```
+
+Collections & Schema (tối giản / schemaless):
+- access_logs: { method, path, status, durationMs, requestId?, correlationId?, ts }
+- notification_events: { type, payload(embedded), ts }
+
+Xem nhanh qua mongo-express:
+1. Truy cập http://localhost:8081
+2. Đăng nhập: root / secret
+3. Chọn database `hms_logs` → chọn collection → Documents → Find
+
+Truy vấn nâng cao trong shell:
 ```bash
-# Update specific service database
-docker-compose exec <service-name> npm run prisma:push
-
-# Example: Update appointment service schema
-docker-compose exec appointment-service npx prisma db push
-
-# Reset all databases (destructive)
-docker-compose down -v
-docker-compose up --build -d
+docker exec -it mongo mongosh -u root -p secret --authenticationDatabase admin
+```
+```javascript
+use hms_logs;
+db.access_logs.find({}).sort({ts:-1}).limit(20);
+db.notification_events.find({ type: /appointment\./ }).sort({ts:-1}).limit(20);
 ```
 
-## 🔄 Business Workflows
-
-### Complete Patient Journey
-```
-Patient Registration → Appointment Booking → Doctor Consultation → Prescription → Pharmacy Dispensing
-```
-
-#### 1. Patient Registration
-- **Who**: Receptionist, Admin
-- **Process**: Register new patient with validation
-- **Security**: All staff can register patients
-
-#### 2. Appointment Scheduling  
-- **Who**: Receptionist, Admin
-- **Process**: Book appointment with conflict detection
-- **Validation**: No overlapping doctor schedules
-- **Statuses**: Pending → Confirmed → Completed/Cancelled
-
-#### 3. Doctor Consultation
-- **Who**: Doctor (assigned to appointment)
-- **Security**: Doctor can only view patients with appointments assigned to them
-- **Process**: View patient history, update appointment status
-
-#### 4. Prescription Management
-- **Who**: Doctor (creation), Pharmacist (dispensing)
-- **Process**: Create prescription → Review → Ready for pickup → Dispensed
-- **Security**: Doctor can only manage their own prescriptions
-- **Workflow**: Pending → Ready → Dispensed
-
-#### 5. Notification System
-- **Trigger**: All major status changes
-- **Method**: Email notifications via RabbitMQ queue
-- **Recipients**: Patients, relevant staff
-- **Templates**: Professional, responsive email templates
-
-## 🔐 Security & Permissions
-
-### Role-Based Access Control (RBAC)
-
-| Role | Permissions | Restrictions |
-|------|-------------|-------------|
-| **Admin** | Full system access | - |
-| **Doctor** | View assigned patients<br>Manage own prescriptions<br>Update appointments | Can only see patients with appointments assigned to them |
-| **Nurse** | View patients<br>Basic appointment management | Cannot create prescriptions |
-| **Receptionist** | Patient registration<br>Appointment scheduling | Limited prescription access |
-
-### Security Features
-- **JWT Authentication**: Token-based authentication với expiration
-- **Password Security**: bcrypt hashing với salt rounds
-- **Data Filtering**: Backend automatically filters data based on user role
-- **Input Validation**: Comprehensive validation để prevent injection attacks
-- **CORS Protection**: Proper origin restrictions
-- **Audit Trail**: All actions logged với user và timestamp information
-
-### API Security
+Export một collection:
 ```bash
-# All protected endpoints require JWT token
-Authorization: Bearer <your-jwt-token>
-
-# Example: Access protected resource
-curl -H "Authorization: Bearer <token>" http://localhost:3001/api/patients
+docker exec -it mongo bash -lc "mongoexport --uri='mongodb://root:secret@localhost:27017/hms_logs?authSource=admin' \
+  --collection=access_logs --out=/tmp/access_logs.json"
+docker cp mongo:/tmp/access_logs.json ./access_logs.json
 ```
 
-## 📡 API Documentation
-
-### Authentication Endpoints
-
-#### User Service (http://localhost:3001/api)
+Nếu cần reset toàn bộ (mất dữ liệu log):
 ```bash
-# Register new user (Admin only)
-POST /users/register
-{
-  "fullName": "Dr. John Doe",
-  "email": "doctor@hospital.com", 
-  "password": "securePassword",
-  "role": "doctor"
-}
-
-# Login
-POST /users/login
-{
-  "email": "admin@hospital.com",
-  "password": "admin123"
-}
-# Response: { "token": "jwt-token", "user": {...} }
-
-# Get all users (Admin only)
-GET /users
-Headers: Authorization: Bearer <token>
-
-# Update user role (Admin only)  
-PATCH /users/:id/role
-{ "role": "doctor" }
+docker compose down -v mongo mongo-express
+docker volume rm hospital-management_mongo_data || true
+docker compose up -d mongo mongo-express
 ```
 
-### Patient Management
+Lý do chọn MongoDB cho logging tạm thời:
+- Linh hoạt schema (dễ thêm trường mới không cần migration)
+- Tách biệt khỏi luồng giao dịch chính (Postgres)
+- Dễ truy vấn ad-hoc qua UI mongo-express
 
-#### Patient Service (http://localhost:3002/api)
+## 6.3 Email Notification (Demo)
+Mục tiêu: chứng minh luồng sự kiện → tiêu thụ → gửi thông báo mà không tích hợp nhà cung cấp thật.
+
+Thành phần:
+- `notification-service`: consume events từ RabbitMQ và gửi email demo.
+- `mailhog`: SMTP giả lập (cổng 1025) + giao diện web http://localhost:8025 hiển thị email.
+
+Luồng:
+1. Service nghiệp vụ (appointment / prescription) phát sự kiện (`*.created`, `*.statusUpdated`).
+2. RabbitMQ route vào queues `notification_appointment_q`, `notification_prescription_q`.
+3. `notification-service` handler ghi log Mongo (`notification_events`) + gửi email (nếu `ENABLE_EMAIL=true`).
+4. Mailhog bắt email, xem ở UI.
+
+Biến môi trường chính:
+```
+ENABLE_EMAIL=true
+SMTP_HOST=mailhog
+SMTP_PORT=1025
+SMTP_FROM="Hospital HMS <noreply@hms.local>"
+NOTIFY_DEMO_TO=demo@hms.local
+```
+
+Test nhanh:
+```
+curl -X POST http://localhost:3003/api/appointments \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"patientId":"P1","doctorId":"D1","startTime":"2025-09-08T09:00:00Z","endTime":"2025-09-08T09:30:00Z"}'
+# Mở http://localhost:8025 và kiểm tra email "Appointment Created"
+```
+
+Giới hạn hiện tại:
+- Không retry/backoff riêng (thất bại sẽ thấy trong logs).
+- Nội dung email HTML đơn giản, chưa i18n, chưa template engine.
+- Chỉ gửi tới một địa chỉ demo tĩnh (`NOTIFY_DEMO_TO`).
+
+Hướng phát triển:
+- Thêm hàng đợi nội bộ cho email + retry.
+- Template hoá (Handlebars) + đa ngôn ngữ.
+- Tích hợp SMTP thực (SES / SendGrid / Mailgun) + cấu hình secrets.
+
+Chạy lệnh sau:
 ```bash
-# Create patient
-POST /patients
-{
-  "fullName": "Jane Smith",
-  "dateOfBirth": "1990-05-15",
-  "gender": "female",
-  "phoneNumber": "0901234567",
-  "email": "patient@email.com",
-  "address": "123 Main St"
-}
-
-# Get patients (filtered by role)
-GET /patients
-GET /patients/:id
-GET /patients?search=jane
-
-# Update patient (Admin/Receptionist)
-PATCH /patients/:id
-{ "address": "456 New Address" }
+docker compose exec appointment-service npm run prisma:push
+# hoặc
+docker compose exec appointment-service npx prisma db push
 ```
 
-### Appointment Management
+## 7. Luồng nghiệp vụ chính
+1. ADMIN đăng ký / đăng nhập user (login lấy JWT).
+2. Tạo Patient.
+3. Tạo Appointment (kiểm tra không trùng lịch).
+4. Cập nhật / hủy Appointment (status).
+5. Tạo Prescription (kèm items).
+6. Cập nhật Prescription status (ISSUED → FILLED / CANCELED).
+7. Notification-service nhận & log event:
+   - appointment.created / statusUpdated / deleted
+   - prescription.created / statusUpdated
+8. Appointment-service:
+  - Tạo lịch (mặc định SCHEDULED)
+  - Xác nhận lịch: PATCH /api/appointments/:id/status { "status": "CONFIRMED" }
+  - Hoàn tất: PATCH /api/appointments/:id/status { "status": "COMPLETED" }
+  - Hủy: PATCH /api/appointments/:id/status { "status": "CANCELED" }
 
-#### Appointment Service (http://localhost:3003/api)
-```bash
-# Create appointment
-POST /appointments
-{
-  "patientId": "patient-id",
-  "doctorId": "doctor-id", 
-  "startTime": "2025-01-15T09:00:00Z",
-  "endTime": "2025-01-15T09:30:00Z",
-  "reason": "Regular checkup"
-}
+## 8. API chính (tóm tắt)
+(Headers: Authorization: Bearer <JWT> khi cần)
 
-# Get appointments (filtered by role)
-GET /appointments
-GET /appointments/:id
+User-service (http://localhost:3002/api/users):
+- POST /register { email, password, role }
+- POST /login { email, password } -> { token }
+- GET / (ADMIN) list users
+- PATCH /:id/role (ADMIN)
 
-# Update appointment status
-PATCH /appointments/:id/status
-{ "status": "CONFIRMED" }
-# Valid statuses: PENDING → CONFIRMED → COMPLETED/CANCELLED
+Patient-service (http://localhost:3001/api/patients) (giả định):
+- POST / (create patient)
+- GET /:id
+- GET /
+- PATCH /:id
+- DELETE /:id (nếu có)
 
-# Delete appointment
-DELETE /appointments/:id
-```
+Appointment-service (http://localhost:3003/api/appointments):
+- POST / { patientId, doctorId, startTime, endTime, reason? }
+- GET /
+- PATCH /:id/status { status } 
+  - Hợp lệ: SCHEDULED | CONFIRMED | COMPLETED | CANCELED
+  - Quy tắc chuyển:
+    - SCHEDULED -> CONFIRMED | CANCELED
+    - CONFIRMED -> COMPLETED | CANCELED
+    - COMPLETED, CANCELED -> (không chuyển tiếp)
+- DELETE /:id
 
-### Prescription Management
+Prescription-service (http://localhost:3005/api/prescriptions):
+- POST / { patientId, doctorId, appointmentId?, note?, items[] }
+  items: [{ drugName,dosage,frequency,durationDays,instruction? }]
+- GET /?patientId=...
+- GET /:id
+- PATCH /:id/status { status } (ISSUED|FILLED|CANCELED)
 
-#### Prescription Service (http://localhost:3004/api)  
-```bash
-# Create prescription (Doctor only)
-POST /prescriptions
-{
-  "patientId": "patient-id",
-  "doctorId": "doctor-id",
-  "appointmentId": "appointment-id",
-  "medications": [
-    {
-      "name": "Paracetamol 500mg",
-      "dosage": "1 tablet",
-      "frequency": "3 times daily",
-      "duration": "5 days",
-      "instructions": "Take after meals"
-    }
-  ],
-  "diagnosis": "Common cold",
-  "notes": "Follow up in 1 week if symptoms persist"
-}
+## 9. Event Model
+Exchanges:
+- appointment.events (topic)
+  - appointment.created
+  - appointment.statusUpdated
+  - appointment.deleted
+- prescription.events (topic)
+  - prescription.created
+  - prescription.statusUpdated
 
-# Get prescriptions (filtered by doctor)
-GET /prescriptions
-GET /prescriptions/:id
-GET /prescriptions?patientId=patient-id
-
-# Update prescription status  
-PATCH /prescriptions/:id/status
-{ "status": "READY" }
-# Valid transitions: PENDING → READY → DISPENSED
-```
-
-### Notification System
-
-#### Notification Service (http://localhost:3005/api)
-```bash
-# Get notification status
-GET /email-status
-
-# Get notification logs (Admin only)
-GET /notifications/logs
-```
-
-## 🔔 Event-Driven Architecture
-
-### Message Queue Events
-
-#### RabbitMQ Exchanges
-- **appointment.events** (topic exchange)
-  - `appointment.created`
-  - `appointment.statusUpdated` 
-  - `appointment.deleted`
-- **prescription.events** (topic exchange)
-  - `prescription.created`
-  - `prescription.statusUpdated`
-
-#### Event Payload Structure
+Payload (ví dụ):
 ```json
 {
   "type": "appointment.created",
-  "id": "appointment-id",
-  "patientId": "patient-id", 
-  "doctorId": "doctor-id",
-  "startTime": "2025-01-15T09:00:00.000Z",
-  "endTime": "2025-01-15T09:30:00.000Z",
-  "status": "PENDING",
+  "id": "cuid",
+  "patientId": "xxx",
+  "doctorId": "xxx",
+  "startTime": "2025-08-14T09:00:00.000Z",
+  "endTime": "2025-08-14T09:30:00.000Z",
+  "status": "SCHEDULED",
   "correlationId": "uuid",
-  "requestId": "uuid", 
-  "timestamp": "2025-01-15T08:00:00.000Z"
+  "requestId": "uuid",
+  "ts": "2025-08-11T..."
 }
 ```
 
-#### Notification Processing
-1. **Event Triggered**: Service publishes event to RabbitMQ
-2. **Queue Processing**: Notification service consumes events
-3. **Email Generation**: Professional HTML templates generated
-4. **Delivery**: SMTP delivery với retry mechanism
-5. **Logging**: Success/failure logged for audit
-
-### Monitoring & Health Checks
+## 10. Kiểm tra nhanh
 ```bash
-# Check service health
-curl http://localhost:3001/health
-curl http://localhost:3002/health
-curl http://localhost:3003/health
-curl http://localhost:3004/health
-curl http://localhost:3005/health
+# Đăng nhập lấy token
+curl -X POST http://localhost:3002/api/users/login -H "Content-Type: application/json" -d '{"email":"admin@x.com","password":"pass"}'
 
-# Monitor RabbitMQ
-# Access: http://localhost:15672 (guest/guest)
-# Check queue lengths, message rates, connections
-
-# View service logs
-docker-compose logs -f user-service
-docker-compose logs -f notification-service
+# Tạo appointment
+curl -X POST http://localhost:3003/api/appointments \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"patientId":"PATIENT_ID","doctorId":"DOCTOR_ID","startTime":"2025-08-14T09:00:00Z","endTime":"2025-08-14T09:30:00Z"}'
 ```
 
-## 🧪 Testing
+## 11. Ràng buộc / Validation hiện tại
+- Appointment: kiểm tra thời gian + overlap, và quy tắc chuyển trạng thái:
+  - SCHEDULED -> CONFIRMED | CANCELED
+  - CONFIRMED -> COMPLETED | CANCELED
+- Prescription: items bắt buộc, status transition ISSUED→FILLED/CANCELED.
+- User: unique email, (chưa áp dụng password/email format nâng cao).
+- Patient: phoneNumber @unique (theo schema nội bộ).
+- requestId & correlationId: Appointment + Prescription services.
 
-### Test Coverage
-- **Unit Tests**: Business logic functions với Jest
-- **Integration Tests**: API endpoints với real database  
-- **End-to-End Tests**: Complete user workflows
-- **Coverage Target**: >80% code coverage across all services
+## 12. Giới hạn hiện tại
+- Dùng prisma db push (chưa migrate versioned).
+- Chưa có test tự động.
+- Error format chưa thống nhất toàn hệ thống.
+- Chưa có rate limit / helmet / audit log.
+- Logging chưa đồng bộ ở user/patient-service.
+- Chưa có thống kê / báo cáo.
 
-### Running Tests
+## 13. Hướng phát triển tiếp
+1. Chuyển sang prisma migrate (migrations version control).
+2. Chuẩn hóa error + validation (Zod/Joi).
+3. Thêm correlationId cho mọi event (nếu mở rộng).
+4. Viết test (Jest + supertest).
+5. README chi tiết schema & ERD.
+6. Tracing / metrics (OpenTelemetry / Prometheus).
+7. Rate limit & security headers.
+8. Enum hoá status trong schema (AppointmentStatus, PrescriptionStatus).
+
+## 14. Troubleshooting
+- Notification log trùng: có 2 consumer attach cùng queue → thêm guard hoặc khởi động lại.
+- ECONNREFUSED RabbitMQ: đảm bảo healthcheck rabbitmq OK, retry logic trong broker đã có.
+- Overlap appointment vẫn tạo: kiểm tra timezone và đầu vào start/end đúng ISO.
+
+## 15. Cleanup / Reset DB nhanh
 ```bash
-# Run tests for specific service
-cd services/user-service
-npm test
+docker compose down -v
+docker compose up --build -d
+```
+## 16. Các Luồng Nghiệp Vụ (Trình Tự Gọi API)
 
-# Run with coverage report  
-npm run test:coverage
+### Luồng 1: Khởi tạo hệ thống lần đầu
+1. (Tuỳ chọn) Tạo admin đầu tiên  
+   POST /api/users/register { email, password, role:"ADMIN" }
+2. Đăng nhập admin  
+   POST /api/users/login -> token
+3. Tạo các tài khoản nhân sự khác (bác sĩ, y tá, lễ tân)  
+   POST /api/users/register (Bearer token ADMIN)
+4. (Tuỳ chọn) Điều chỉnh role  
+   PATCH /api/users/:id/role { role }
 
-# Run all tests
-npm run test:all
+### Luồng 2: Tiếp nhận bệnh nhân (Onboarding)
+1. Lễ tân (hoặc role hợp lệ) đăng nhập
+2. Tạo bệnh nhân  
+   POST /api/patients { fullName, dateOfBirth, gender, phoneNumber, ... }
+3. (Tuỳ chọn) Xem / tìm kiếm bệnh nhân  
+   GET /api/patients?search=...
 
-# Integration tests
-npm run test:integration
+### Luồng 3: Đặt lịch khám (Appointment)
+1) Đăng nhập (role hợp lệ)
+2) Tạo lịch: POST /api/appointments {...} -> SCHEDULED
+3) (Tuỳ quy trình) Xác nhận lịch: PATCH /:id/status { "status": "CONFIRMED" }
+4) (Tuỳ chọn) Xem danh sách lịch
 
-# E2E tests  
-npm run test:e2e
+### Luồng 4: Hoàn tất lịch & lập đơn thuốc
+1) Bác sĩ đăng nhập
+2) (Khuyên dùng) Nếu đang SCHEDULED: xác nhận trước -> PATCH { "status": "CONFIRMED" }
+3) Hoàn tất: PATCH { "status": "COMPLETED" }
+4) Tạo đơn thuốc: POST /api/prescriptions {...}
+5) Xem chi tiết đơn (tuỳ chọn)  
+   GET /api/prescriptions/:id
+
+### Luồng 5: Huỷ lịch khám
+1. Đăng nhập (RECEPTIONIST / ADMIN / DOCTOR nếu cho phép)
+2. PATCH /api/appointments/:id/status { status:"CANCELED" }
+
+### Luồng 6: Cấp phát (FILLED) đơn thuốc
+1. Bác sĩ hoặc ADMIN đăng nhập
+2. PATCH /api/prescriptions/:id/status { status:"FILLED" }
+   - Đã FILLED gửi lại: 200 (idempotent)
+   - Đang CANCELED: 409 (invalid transition)
+
+### Luồng 7: Huỷ đơn thuốc
+1. Bác sĩ hoặc ADMIN đăng nhập
+2. PATCH /api/prescriptions/:id/status { status:"CANCELED" }
+   - Chỉ cho phép khi đang ISSUED
+
+### Luồng 8: Tổng quan hồ sơ bệnh nhân
+1. Đăng nhập (DOCTOR / NURSE / ADMIN)
+2. GET /api/patients/:id
+3. GET /api/appointments (FE tạm lọc theo patientId)
+4. GET /api/prescriptions?patientId=...
+
+### Luồng 9: Quản trị người dùng
+1. ADMIN đăng nhập
+2. GET /api/users
+3. PATCH /api/users/:id/role { role }
+
+### Luồng 10: Debug sự kiện
+1. Thực hiện hành động tạo/ cập nhật (appointment hoặc prescription)
+2. Xem logs notification-service:
+   - appointment.created / statusUpdated / deleted
+   - prescription.created / statusUpdated
+
+### Mẫu lỗi chính
+- 400: Thiếu / sai định dạng dữ liệu
+- 401: Thiếu hoặc sai token
+- 403: Không đủ quyền
+- 404: Không tìm thấy
+- 409: 
+  - Trùng khung giờ bác sĩ
+  - Chuyển trạng thái không hợp lệ
+  - Email trùng (user)
+- 500: Lỗi server (hiển thị thông báo chung)
+
+### Gợi ý retry phía FE
+- 409 (conflict): không auto retry – yêu cầu người dùng chọn lại
+- 500: cho phép thử lại thủ công
+- Mất mạng: backoff (2s,4s,8s) cho GET không đột biến dữ liệu
+
+### Dữ liệu tối thiểu cần cho mỗi luồng
+| Luồng | ID bắt buộc |
+|-------|-------------|
+| Đặt lịch | patientId, doctorId |
+| Lập đơn | patientId, doctorId (appointmentId tuỳ chọn) |
+| Hoàn tất lịch | appointmentId |
+| Cấp phát đơn | prescriptionId |
+
+### Chuyển trạng thái
+- Appointment: SCHEDULED -> CONFIRMED | CANCELED; CONFIRMED -> COMPLETED | CANCELED
+- Prescription: ISSUED -> FILLED | CANCELED
+
+### Gợi ý cache phía FE
+- Cache danh sách bác sĩ (users role=DOCTOR)
+- Cache thông tin bệnh nhân vừa xem
+- Invalidate danh sách lịch khi: tạo, đổi status, xoá
+
+### Tham số query tương lai (dự kiến)
+- /api/appointments?doctorId=&from=&to=&status=
+- /api/prescriptions?patientId=&status=
+
+## 17. Sequence Diagrams
+
+### 17.1 Create Appointment
+
+```mermaid
+sequenceDiagram
+  participant FE as Frontend
+  participant US as User-Service (JWT verify)
+  participant AS as Appointment-Service
+  participant MQ as RabbitMQ
+  participant NS as Notification-Service
+
+  FE->>US: POST /api/users/login
+  US-->>FE: 200 {token}
+  FE->>AS: POST /api/appointments (Bearer token)
+  AS->>AS: Validate + check overlap
+  AS-->>FE: 201 {appointment}
+  AS->>MQ: publish appointment.created
+  MQ-->>NS: appointment.created
+  NS->>NS: Log notification
 ```
 
-### Test Data
-- **Test Database**: Separate test databases for each service
-- **Sample Data**: Predefined test users, patients, appointments
-- **Cleanup**: Automatic test data cleanup after each test run
+### 17.2 Complete Appointment & Issue Prescription
+```mermaid
+sequenceDiagram
+  participant FE
+  participant AS as Appointment-Service
+  participant PS as Prescription-Service
+  participant MQ as RabbitMQ
+  participant NS as Notification-Service
 
-## 📊 Performance & Scalability
-
-### Performance Requirements Met
-- **Throughput**: 100+ requests/second (with horizontal scaling)
-- **Response Time**: Average 200-350ms, 99th percentile <800ms (well under 1s requirement)
-- **Concurrent Users**: Supports 1000+ concurrent users với proper scaling
-
-### Performance Optimizations
-- **Database**: Connection pooling, proper indexing, query optimization
-- **Caching**: Redis caching cho frequently accessed data
-- **Async Processing**: Email notifications processed asynchronously
-- **Pagination**: Large datasets paginated to improve response times
-- **Compression**: API response compression enabled
-
-### Scalability Strategy
-```bash
-# Horizontal scaling with Docker
-docker-compose up --scale user-service=2 --scale patient-service=2
-
-# Load balancer configuration
-# nginx/HAProxy for distributing traffic across instances
-
-# Database scaling
-# Read replicas for read-heavy operations
-# Connection pooling to prevent bottlenecks
+  FE->>AS: PATCH /appointments/:id/status {COMPLETED}
+  AS-->>FE: 200
+  AS->>MQ: appointment.statusUpdated
+  FE->>PS: POST /prescriptions {...items}
+  PS-->>FE: 201 {prescription}
+  PS->>MQ: prescription.created
+  MQ-->>NS: events
+  NS->>NS: Log
 ```
 
-### Monitoring & Alerts
-- **Health Checks**: All services expose /health endpoints
-- **Performance Metrics**: Response time, error rate, throughput tracking
-- **Resource Monitoring**: CPU, memory, database performance
-- **Alerting**: Automated alerts for performance degradation
+### 17.3 Update Prescription Status (ISSUED -> FILLED)
+```mermaid
+sequenceDiagram
+  participant FE
+  participant PS as Prescription-Service
+  participant MQ as RabbitMQ
+  participant NS as Notification-Service
 
-## 🚀 Production Deployment
-
-### Docker Production Setup
-```bash
-# Production build
-docker-compose -f docker-compose.prod.yml up --build -d
-
-# Environment configuration
-cp .env.example .env.production
-# Update production environment variables
-
-# Database migrations
-docker-compose exec user-service npm run prisma:deploy
-docker-compose exec patient-service npm run prisma:deploy
-# ... for other services
-
-# Health check verification
-curl http://localhost:3001/health
-curl http://localhost:3002/health
-# ... check all services
+  FE->>PS: PATCH /prescriptions/:id/status {FILLED}
+  PS->>PS: Validate transition
+  PS-->>FE: 200 {status:FILLED}
+  PS->>MQ: prescription.statusUpdated
+  MQ-->>NS: event
+  NS->>NS: Log
 ```
 
-### Environment Configuration
-```env
-# Production Environment Variables
-NODE_ENV=production
-JWT_SECRET=<strong-production-secret>
-DATABASE_URL=<production-database-url>
-SMTP_HOST=<production-smtp-server>
-RABBITMQ_URL=<production-rabbitmq-url>
-
-# Security
-CORS_ORIGIN=https://yourdomain.com
-RATE_LIMIT_WINDOW=900000  # 15 minutes
-RATE_LIMIT_MAX=100        # 100 requests per window
-```
-
-### Deployment Checklist
-- [ ] Environment variables configured
-- [ ] Database migrations applied
-- [ ] SSL certificates installed  
-- [ ] Load balancer configured
-- [ ] Monitoring setup (Prometheus/Grafana)
-- [ ] Backup strategy implemented
-- [ ] Error tracking (Sentry/similar)
-- [ ] Log aggregation configured
-
-## 🔧 Development
-
-### Local Development Setup
-```bash
-# Clone repository
-git clone https://github.com/tqlucitvn/hospital-management.git
-cd hospital-management/backend
-
-# Install dependencies for all services
-npm run install:all
-
-# Start development environment
-npm run dev
-
-# Or start individual services
-cd services/user-service && npm run dev
-cd services/patient-service && npm run dev
-```
-
-### Code Quality
-- **ESLint**: Code linting và formatting
-- **Prettier**: Code formatting standardization  
-- **Husky**: Pre-commit hooks để ensure code quality
-- **Jest**: Unit và integration testing framework
-
-### Database Development
-```bash
-# Create new migration
-cd services/user-service
-npx prisma migrate dev --name add-new-field
-
-# Reset database (development only)
-npx prisma migrate reset
-
-# View database
-npx prisma studio
-```
-
-### Debugging
-```bash
-# View logs for specific service
-docker-compose logs -f user-service
-
-# Debug with Node.js inspector
-node --inspect=0.0.0.0:9229 src/index.js
-
-# Database debugging  
-docker-compose exec postgres-user psql -U admin -d hospital_users
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-#### Services Not Starting
-```bash
-# Check Docker status
-docker-compose ps
-
-# View service logs
-docker-compose logs service-name
-
-# Restart specific service
-docker-compose restart user-service
-```
-
-#### Database Connection Issues
-```bash
-# Check database connectivity
-docker-compose exec postgres-user pg_isready
-
-# Reset database connections
-docker-compose restart postgres-user
-docker-compose restart user-service
-```
-
-#### RabbitMQ Connection Issues
-```bash
-# Check RabbitMQ status
-docker-compose exec rabbitmq rabbitmqctl status
-
-# View RabbitMQ logs
-docker-compose logs rabbitmq
-
-# Reset RabbitMQ
-docker-compose restart rabbitmq
-```
-
-#### Email Notifications Not Working
-```bash
-# Check notification service logs
-docker-compose logs notification-service
-
-# Verify SMTP configuration in .env
-# Check RabbitMQ queue status at http://localhost:15672
-```
-
-### Performance Issues
-```bash
-# Check resource usage
-docker stats
-
-# Monitor database performance
-docker-compose exec postgres-user psql -U admin -d hospital_users -c "SELECT * FROM pg_stat_activity;"
-
-# Check API response times
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost:3001/health
-```
-
-### Complete System Reset
-```bash
-# WARNING: This will delete all data
-docker-compose down -v
-docker system prune -f
-docker-compose up --build -d
-```
-## 📁 Project Structure
-
-```
-hospital-management/
-├── backend/
-│   ├── services/
-│   │   ├── user-service/          # Authentication & user management
-│   │   ├── patient-service/       # Patient records management  
-│   │   ├── appointment-service/   # Appointment scheduling
-│   │   ├── prescription-service/  # Prescription management
-│   │   └── notification-service/  # Email notifications
-│   ├── frontend/                  # PHP web interface
-│   ├── docker-compose.yml         # Development environment
-│   ├── docker-compose.prod.yml    # Production environment
-│   └── README.md                  # This file
-├── docs/                         # Documentation
-│   ├── api/                      # API documentation
-│   ├── architecture/             # System architecture diagrams
-│   └── deployment/               # Deployment guides
-└── tests/                        # End-to-end tests
-    ├── integration/              # Integration tests
-    └── performance/              # Performance tests
-```
-
-## 🤝 Contributing
-
-### Development Workflow
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Standards
-- Follow ESLint configuration
-- Write tests for new features
-- Update documentation as needed
-- Use conventional commit messages
-
-### Reporting Issues
-Please use the GitHub issue tracker to report bugs or request features.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👥 Team
-
-**Developer**: Trần Quang Lực (MSSV: 18127147)  
-**Course**: Ứng dụng phân tán - HCMUS  
-**Advisors**: 
-- Thạc sĩ Nguyễn Trường Sơn
-- Thạc sĩ Phạm Minh Tú
-
-## 🙏 Acknowledgments
-
-- HCMUS Computer Science Faculty
-- Course instructors and teaching assistants
-- Open source community for tools and libraries used
-
----
-
-**Version**: 1.0.0 (Production Ready)  
-**Last Updated**: September 2025  
-**Repository**: [https://github.com/tqlucitvn/hospital-management](https://github.com/tqlucitvn/hospital-management)
+--- 
+Version: v0 (prototype).

@@ -111,12 +111,12 @@
     \vspace{2cm}
     
     \begin{tabular}{ll}
-    		extbf{Nhóm thực hiện:} & Nhóm 13 \\
-    		extbf{Thành viên:} & Trần Quang Lực \\
-    		extbf{MSSV:} & 18127147 \\
-    		extbf{Lớp:} & 18CLC3 \\
-    		extbf{Giảng viên hướng dẫn:} & Thạc sĩ Nguyễn Trường Sơn \\
-    & Thạc sĩ Phạm Minh Tú \\
+    	extbf{Nhóm thực hiện:} & Nhóm 13 \\
+    	extbf{Thành viên:} & Trần Quang Lực \\
+    	extbf{MSSV:} & 18127147 \\
+    	extbf{Lớp:} & 18CLC3 \\
+    	extbf{Giảng viên hướng dẫn:} & ThS. Nguyễn Trường Sơn \\
+    & ThS. Phạm Minh Tú \\
     \end{tabular}
     
     \vfill
@@ -133,7 +133,7 @@ Về mặt kỹ thuật, hệ thống được triển khai với 5 microservice
 
 Kết quả đạt được bao gồm một hệ thống hoàn chỉnh với các chức năng cốt lõi đầy đủ, hiệu suất tốt (thời gian phản hồi < 500ms), khả năng mở rộng cao, và giao diện người dùng thân thiện. Hệ thống đã được kiểm thử toàn diện với kiểm thử đơn vị (unit tests), kiểm thử tích hợp (integration tests) và kiểm thử đầu cuối (end-to-end tests), đạt độ bao phủ mã nguồn > 80\%.
 
-        extbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Docker, RabbitMQ, JWT, Phân quyền theo vai trò
+	extbf{Từ khóa:} Hệ thống quản lý bệnh viện, Microservices, Docker, RabbitMQ, JWT, Phân quyền theo vai trò
 \end{abstract}
 
 \tableofcontents
@@ -327,6 +327,102 @@ Xác thực người dùng với JWT tokens & Hoàn thành \\
     \item Quản lý đơn thuốc
     \item Hệ thống thông báo email
     \item Bảng điều khiển (dashboard) theo vai trò
+\end{itemize}
+
+\section{Bổ sung: Ghi log tập trung với MongoDB}\label{sec:logging-mongo}
+Trong giai đoạn tối ưu hoá quan sát hệ thống, nhóm bổ sung một thành phần logging nhẹ dùng MongoDB:\newline
+	extbf{Mục tiêu:}
+\begin{itemize}
+    \item Thu thập access log (HTTP) và sự kiện bất đồng bộ mà không làm phình schema quan hệ.
+    \item Hỗ trợ tra cứu nhanh (ad-hoc) qua UI mà không cần dựng ELK đầy đủ.
+\end{itemize}
+	extbf{Thành phần triển khai:}
+\begin{itemize}
+    \item Service bổ sung: \texttt{mongo} (MongoDB 6.0), \texttt{mongo-express} (UI quản trị).
+    \item Biến môi trường dùng chung: \texttt{MONGO\_URL = mongodb://root:secret@mongo:27017/?authSource=admin}, \texttt{MONGO\_DB = hms\_logs}.
+    \item Thư viện nội bộ: \texttt{src/lib/mongoLogs.js} (kết nối lazy, hàm \texttt{insertLog(collection, doc)}). 
+\end{itemize}
+	extbf{Nguồn log hiện tại:}
+\begin{itemize}
+    \item \textbf{appointment-service}: middleware ghi mỗi request (method, path, status, durationMs, requestId, ts) vào collection \texttt{access\_logs}.
+    \item \textbf{notification-service}: consumer ghi mỗi sự kiện nhận (type, payload thu gọn, ts) vào collection \texttt{notification\_events}.
+\end{itemize}
+	extbf{Lý do lựa chọn MongoDB:}
+\begin{itemize}
+    \item Không cần migration khi thêm trường log.
+    \item Tránh khoá ghi trên Postgres dưới tải cao.
+    \item Dễ mở rộng sang giải pháp streaming (Kafka / OpenSearch) về sau.
+\end{itemize}
+	extbf{Truy vấn mẫu (mongosh):}
+\begin{lstlisting}[language=JavaScript]
+use hms_logs;
+// 20 access log mới nhất
+db.access_logs.find({}).sort({ ts: -1 }).limit(20);
+// Lọc sự kiện appointment
+db.notification_events.find({ type: /appointment\./ })
+    .sort({ ts: -1 }).limit(20);
+\end{lstlisting}
+	extbf{Export nhanh:}
+\begin{lstlisting}[language=bash]
+docker exec -it mongo bash -lc "mongoexport \
+ --uri='mongodb://root:secret@localhost:27017/hms_logs?authSource=admin' \
+ --collection=access_logs --out=/tmp/access_logs.json"
+docker cp mongo:/tmp/access_logs.json ./access_logs.json
+\end{lstlisting}
+	extbf{Reset (mất dữ liệu log):}
+\begin{lstlisting}[language=bash]
+docker compose down -v mongo mongo-express
+docker volume rm hospital-management_mongo_data || true
+docker compose up -d mongo mongo-express
+\end{lstlisting}
+Giải pháp này mang tính tạm thời (prototype) và có thể được thay bằng pipeline chuẩn (OpenTelemetry collector → Loki/ELK) khi hệ thống cần mở rộng phân tích log nâng cao.
+
+\section{Bổ sung: Demo gửi Email sự kiện}\label{sec:email-demo}
+Mục tiêu phần này là minh họa nhanh luồng sự kiện bất đồng bộ được tiêu thụ và chuyển thành thông báo (email). Thay vì tích hợp SMTP thật (phức tạp về bảo mật và cấu hình), hệ thống dùng \textbf{Mailhog} để bắt email trong môi trường phát triển.
+
+\subsection*{Luồng tổng quát}
+\begin{enumerate}
+    \item Dịch vụ nghiệp vụ (Appointment / Prescription) phát sự kiện qua RabbitMQ (topic exchange) khi tạo mới hoặc đổi trạng thái.
+    \item RabbitMQ định tuyến vào các queue chuyên biệt: \texttt{notification\_appointment\_q}, \texttt{notification\_prescription\_q}.
+    \item \texttt{notification-service} subscribe, nhận message, ghi log Mongo (audit) và gửi email demo nếu bật cấu hình.
+    \item Mailhog nhận SMTP và hiển thị email tại giao diện web (không gửi ra bên ngoài).
+\end{enumerate}
+
+\subsection*{Triển khai kỹ thuật}
+\begin{itemize}
+    \item Biến môi trường chính: \texttt{ENABLE\_EMAIL=true}, \texttt{SMTP\_HOST=mailhog}, \texttt{SMTP\_PORT=1025}, \texttt{NOTIFY\_DEMO\_TO}.
+    \item Thư viện: \texttt{nodemailer} (cấu hình transporter đơn giản, không auth).
+    \item File mã nguồn: \texttt{notification-service/src/lib/email.js} (hàm \texttt{sendMail}).
+    \item Handlers mở rộng: \texttt{appointment.handler.js}, \texttt{prescription.handler.js} gọi \texttt{sendMail} theo loại routing key.
+\end{itemize}
+
+\subsection*{Nội dung email}
+Chỉ dùng HTML tối giản (tiêu đề, ID, trạng thái, thời gian). Chưa có i18n hay template engine – dễ thay thế bằng Handlebars/Twig trong giai đoạn tiếp theo.
+
+\subsection*{Cách kiểm thử nhanh}
+\begin{lstlisting}[language=bash]
+docker compose up -d notification-service mailhog
+# Tạo 1 appointment để phát sự kiện
+curl -X POST http://localhost:3003/api/appointments \
+    -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+    -d '{"patientId":"P1","doctorId":"D1","startTime":"2025-09-08T09:00:00Z","endTime":"2025-09-08T09:30:00Z"}'
+# Mở giao diện
+# http://localhost:8025
+\end{lstlisting}
+
+\subsection*{Giới hạn hiện tại}
+\begin{itemize}
+    \item Không có retry/backoff riêng – lỗi gửi chỉ log (có thể triển khai hàng đợi nội bộ hoặc dead-letter).
+    \item Chưa đa ngôn ngữ, chưa template hoá.
+    \item Chỉ gửi tới một địa chỉ cấu hình (demo); chưa map theo bệnh nhân/người dùng thật.
+\end{itemize}
+
+\subsection*{Hướng mở rộng}
+\begin{itemize}
+    \item Thêm lớp queue nội bộ cho email + cơ chế retry exponential.
+    \item Template engine + i18n (VD: Handlebars + enum hoá chuỗi).
+    \item Tích hợp SMTP provider (SES / SendGrid) + chữ ký DKIM/SPF.
+    \item Tách event phân loại: nhắc lịch hẹn (gửi trước thời điểm startTime X phút) bằng scheduler.
 \end{itemize}
 
 \subsection{Giới hạn}
