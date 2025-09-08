@@ -61,7 +61,29 @@ dist
 *.log
 .prisma
 
-# USBWebserver
-USBWebserver/
+# LaTeX build artifacts (added for report.tex cleanliness)
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.out
+*.bbl
+*.blg
+*.lof
+*.lot
+*.idx
+*.ilg
+*.ind
+*.acr
+*.acn
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+*.xdy
+
+# Duplicate USBWebserver patterns consolidated above
 usbwebserver/
 webserver/

@@ -2140,21 +2140,21 @@
     \subsection{Email Templates}
     \subsubsection{Appointment Reminder}
     \begin{itemize}
-        \item Subject: Nhắc nhở lịch khám
-        \item Content: Thông tin bác sĩ, thời gian, địa điểm
-        \item Call-to-action: Xác nhận hoặc reschedule
-        \item Responsive HTML template
+        \item Tiêu đề: Nhắc nhở lịch khám
+        \item Nội dung: Thông tin bác sĩ, thời gian, địa điểm
+        \item Hành động: Xác nhận hoặc đổi lịch
+        \item Mẫu HTML responsive
     \end{itemize}
 
     \subsubsection{Prescription Ready}
     \begin{itemize}
-        \item Subject: Đơn thuốc sẵn sàng
-        \item Content: Danh sách thuốc, hướng dẫn lấy thuốc
-        \item Location: Quầy thuốc, giờ hoạt động
-        \item Expiry warning: Thời hạn lấy thuốc
+        \item Tiêu đề: Đơn thuốc sẵn sàng
+        \item Nội dung: Danh sách thuốc, hướng dẫn lấy thuốc
+        \item Địa điểm: Quầy thuốc, giờ hoạt động
+        \item Cảnh báo hết hạn: Thời hạn lấy thuốc
     \end{itemize}
 
-    \subsection{Event-Driven Notifications}
+    \subsection{Thông báo hướng sự kiện (Event-Driven Notifications)}
     \begin{itemize}
         \item Kích hoạt tự động qua RabbitMQ
         \item Cơ chế retry cho email thất bại
@@ -2382,23 +2382,23 @@
         \item Separation of concerns rõ ràng
         \item Independent deployment cho mỗi service
         \item Consistent API design patterns
-        \item Comprehensive error logging
+    \item Ghi log lỗi toàn diện
     \end{itemize}
 
-    \subsection{User Experience}
+    \subsection{Trải nghiệm người dùng}
     \begin{itemize}
-        \item Intuitive role-based interface
-        \item Responsive design cho mobile
-        \item Real-time notifications
-        \item Fast page load times
+    \item Giao diện trực quan theo vai trò
+    \item Thiết kế responsive cho thiết bị di động
+    \item Thông báo thời gian thực
+    \item Tốc độ tải trang nhanh
     \end{itemize}
 
-    \subsection{Security}
+    \subsection{Bảo mật}
     \begin{itemize}
-        \item JWT token authentication
-        \item Password hashing với bcrypt
-        \item Role-based access control
-        \item Input validation và sanitization
+    \item Xác thực bằng JWT
+    \item Băm mật khẩu với bcrypt
+    \item Kiểm soát truy cập theo vai trò
+    \item Xác thực và làm sạch dữ liệu đầu vào
     \end{itemize}
 
     \subsection{Khả năng quan sát}
